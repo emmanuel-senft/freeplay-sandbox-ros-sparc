@@ -219,8 +219,11 @@ Everytime a new signal is received, the transform is updated: if you move the
 robot, simply tap again on the bottom right corner, and the robot will
 re-localise.
 
-**Pre-requisite**: [ros_markers](https://github.com/chili-epfl/ros_markers) (the
+**Pre-requisite**: 
+  - [chilitags library](https://github.com/chili-epfl/chilitags) (Robust Fiducial Markers for Augmented Reality And Robotics - http://chili.epfl.ch/software)
+  - [ros_markers](https://github.com/chili-epfl/ros_markers) (the
 ROS wrapper for the chilitags library)
+  - [freeplay sandbox messages](https://github.com/severin-lemaignan/freeplay-sandbox-msgs)(ROS messages for the freeplay_sandbox experimental framework)
 
 To enable marker-based localisation, launch `play.launch` with the option
 `with_marker_localisation:=true`.
