@@ -1,0 +1,103 @@
+#!/usr/bin/env python
+import numpy
+import random
+
+import math
+import rospy
+import tf
+
+import actionlib
+
+from geometry_msgs.msg import PoseStamped, Point
+from visualization_msgs.msg import MarkerArray, Marker
+import freeplay_sandbox_msgs.msg
+
+MAP_HEIGHT=0.335
+
+REFERENCE_FRAME="/sandtray"
+
+ANIMALS = ["zebra","elephant","leopard","lion","giraffe","rhino","crocodile","hippo"]
+
+tl=None
+
+def xyz_to_mat44(pos):
+    return tf.transformations.translation_matrix((pos.x, pos.y, pos.z))
+
+def xyzw_to_mat44(ori):
+    return tf.transformations.quaternion_matrix((ori.x, ori.y, ori.z, ori.w))
+
+def on_goal_received(movementPose):
+    item = movementPose.header.frame_id
+    pose = get_pose(item)
+    if pose is None: # frame not published yet!
+        return
+    pose = pose[0], pose[1]
+    # animal out of reach
+    if not reachable(pose):
+        return
+    #t = tl.getLatestCommonTime("sandtray",item) 
+    #translation, rotation = tl.lookupTransform("sandtray", item, t)
+    #mat44 = numpy.dot(tf.transformations.translation_matrix(translation), tf.transformations.quaternion_matrix(rotation))
+    #pose44 = numpy.dot(xyz_to_mat44(movementPose.pose.position), xyzw_to_mat44(movementPose.pose.orientation))
+    #txpose = numpy.dot(mat44, pose44)
+    #xyz = tuple(tf.transformations.translation_from_matrix(txpose))[:3]
+    #quat = tuple(tf.transformations.quaternion_from_matrix(txpose))
+
+    pose = tl.transformPose("sandtray", movementPose)
+    pose =  pose.pose.position
+    if not reachable(pose):
+        return   
+    print "sending " + item + " to " + str(pose.x) + " " + str(pose.y)
+    goal = freeplay_sandbox_msgs.msg.PlaygroundNavigationGoal(item=movementPose.header.frame_id,goal=pose)
+    motion.send_goal(goal)
+    motion.wait_for_result()
+
+def get_pose(item, reference=REFERENCE_FRAME):
+
+    if item not in tl.getFrameStrings():
+        rospy.logwarn_throttle(20,"%s is not yet published." % item)
+        return None
+
+    if tl.canTransform(reference, item, rospy.Time(0)):
+        (trans,rot) = tl.lookupTransform(reference, item, rospy.Time(0))
+    else:
+        return None
+
+    return trans
+
+def reachable(pose):
+    """
+    Check whether a given pose is reachable by the robot.
+    If the 'arm_reach' frame is not available, returns 0.
+    """
+    arm_reach = get_pose(ARM_REACH_FRAME)
+    if arm_reach is None:
+        return True
+    x,y,z = arm_reach
+
+    return dist((x,y), pose) < z # by convention, 'z' is the radius of the reachable zone at sandtray's level
+
+def dist(a, b=(0,0)):
+
+    return math.sqrt(math.pow(a[0] - b[0],2) + math.pow(a[1]-b[1],2))
+
+if __name__ == "__main__":
+
+    rospy.init_node('sandbox_player')
+    ARM_REACH_FRAME = rospy.get_param('~arm_reach_frame', "arm_reach")
+
+    rospy.loginfo("Initializing TF...")
+    tl = tf.TransformListener()
+    rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
+
+    goal_sub = rospy.Subscriber("goal", PoseStamped, on_goal_received);
+
+    motion = actionlib.SimpleActionClient('move_sandbox_items', freeplay_sandbox_msgs.msg.PlaygroundNavigationAction)
+    motion.wait_for_server()
+
+    rospy.loginfo("Ready to play!")
+
+    last_pose=None
+    action_idx=0
+
+    rospy.spin()
