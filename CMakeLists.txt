@@ -114,6 +114,7 @@ install(DIRECTORY
 catkin_install_python(PROGRAMS
     nodes/move_sandbox_items
     nodes/play
+    nodes/sparc
     nodes/zones_from_image
     nodes/nao_behaviours
     nodes/sandtray_gaze_viz
