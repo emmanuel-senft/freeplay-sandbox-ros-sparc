@@ -16,15 +16,7 @@ MAP_HEIGHT=0.335
 
 REFERENCE_FRAME="/sandtray"
 
-ANIMALS = ["zebra","elephant","leopard","lion","giraffe","rhino","crocodile","hippo"]
-
 tl=None
-
-def xyz_to_mat44(pos):
-    return tf.transformations.translation_matrix((pos.x, pos.y, pos.z))
-
-def xyzw_to_mat44(ori):
-    return tf.transformations.quaternion_matrix((ori.x, ori.y, ori.z, ori.w))
 
 def on_goal_received(movementPose):
     item = movementPose.header.frame_id
@@ -35,13 +27,6 @@ def on_goal_received(movementPose):
     # animal out of reach
     if not reachable(pose):
         return
-    #t = tl.getLatestCommonTime("sandtray",item) 
-    #translation, rotation = tl.lookupTransform("sandtray", item, t)
-    #mat44 = numpy.dot(tf.transformations.translation_matrix(translation), tf.transformations.quaternion_matrix(rotation))
-    #pose44 = numpy.dot(xyz_to_mat44(movementPose.pose.position), xyzw_to_mat44(movementPose.pose.orientation))
-    #txpose = numpy.dot(mat44, pose44)
-    #xyz = tuple(tf.transformations.translation_from_matrix(txpose))[:3]
-    #quat = tuple(tf.transformations.quaternion_from_matrix(txpose))
 
     pose = tl.transformPose("sandtray", movementPose)
     pose =  pose.pose.position
