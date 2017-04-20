@@ -36,6 +36,7 @@ NAO_RELBOW_ANGLE_LIMITS = [2 * TO_RAD, 88.5 * TO_RAD]
 tl = None
 
 is_tracking_focus = False
+robot_ready_to_point = False
 
 last_pose = None
 
@@ -141,38 +142,46 @@ def point_at(targetpose):
     motionProxy.setAngles(names, angles, fractionMaxSpeed)
 
 def set_pointing_posture():
+    global robot_ready_to_point
 
-    names  = ["RShoulderRoll",
-              "RShoulderPitch", 
-              "RElbowRoll", 
-              "RElbowYaw",
-              "RWristYaw"]
-    angleLists  = [[-10 * TO_RAD, -75 * TO_RAD, -75 * TO_RAD, -35 * TO_RAD],
-                   [70 * TO_RAD, 70 * TO_RAD, 10 * TO_RAD],
-                   [2 * TO_RAD, 2 * TO_RAD, 60 * TO_RAD],
-                   [0 * TO_RAD],
-                   [0 * TO_RAD]]
-    timeLists   = [[1.0, 3.0,4.0,5.0],
-                   [1.0, 3.0, 4.0],
-                   [1.0,4.0,5.0],
-                   [1.0],
-                   [1.0]]
-    isAbsolute  = True
-    motionProxy.angleInterpolation(names, angleLists, timeLists, isAbsolute)
+    if not robot_ready_to_point:
+        names  = ["RShoulderRoll",
+                "RShoulderPitch", 
+                "RElbowRoll", 
+                "RElbowYaw",
+                "RWristYaw"]
+        angleLists  = [[-10 * TO_RAD, -75 * TO_RAD, -75 * TO_RAD, -35 * TO_RAD],
+                    [70 * TO_RAD, 70 * TO_RAD, 10 * TO_RAD],
+                    [2 * TO_RAD, 2 * TO_RAD, 60 * TO_RAD],
+                    [0 * TO_RAD],
+                    [0 * TO_RAD]]
+        timeLists   = [[1.0, 3.0,4.0,5.0],
+                    [1.0, 3.0, 4.0],
+                    [1.0,4.0,5.0],
+                    [1.0],
+                    [1.0]]
+        isAbsolute  = True
+        motionProxy.angleInterpolation(names, angleLists, timeLists, isAbsolute) #blocking!
+
+    robot_ready_to_point = True
 
 def arm_to_rest_posture():
+    global robot_ready_to_point
 
-    names  = ["RShoulderRoll",
-              "RShoulderPitch", 
-              "RElbowRoll"]
-    angleLists  = [[-75 * TO_RAD, -75 * TO_RAD, -10 * TO_RAD],
-                   [10 * TO_RAD, 70 * TO_RAD],
-                   [2 * TO_RAD]]
-    timeLists   = [[1.0, 3.0, 5.0],
-                   [1.0, 3.0],
-                   [1.5]]
-    isAbsolute  = True
-    motionProxy.angleInterpolation(names, angleLists, timeLists, isAbsolute)
+    if robot_ready_to_point:
+        names  = ["RShoulderRoll",
+                "RShoulderPitch", 
+                "RElbowRoll"]
+        angleLists  = [[-75 * TO_RAD, -75 * TO_RAD, -10 * TO_RAD],
+                    [10 * TO_RAD, 70 * TO_RAD],
+                    [2 * TO_RAD]]
+        timeLists   = [[1.0, 3.0, 5.0],
+                    [1.0, 3.0],
+                    [1.5]]
+        isAbsolute  = True
+        motionProxy.angleInterpolation(names, angleLists, timeLists, isAbsolute) #blocking!
+
+    robot_ready_to_point = False
 
 def arm_between_pointing_posture():
     names  = ["RShoulderRoll",
@@ -182,7 +191,7 @@ def arm_between_pointing_posture():
     timeLists   = [[1.0],
     	       [1.0]]
     isAbsolute  = True
-    motionProxy.angleInterpolation(names, angleLists, timeLists, isAbsolute)
+    motionProxy.angleInterpolation(names, angleLists, timeLists, isAbsolute) #blocking!
 
 def on_pose(pose):
     global last_pose
@@ -199,9 +208,12 @@ def on_pose(pose):
         #    motionProxy.openHand("RHand");
         #    roll = 1.7; #rotate wrist to the right (about the x axis, w.r.t. robot frame)
 
-        point_at(pose)
-        look_at(pose)
-        
+        if not robot_ready_to_point:
+            set_pointing_posture()
+        else:
+            point_at(pose)
+            look_at(pose)
+
         last_pose = rospy.Time.now()
 
 
@@ -262,9 +274,6 @@ if __name__ == "__main__":
 
     set_pointing_posture()
 
-    #motionProxy.wbEnableEffectorControl(effector,True);
-    rospy.sleep(2)
-
     tl = tf.TransformListener()
 
     ### Check the robot is launched and properly localised wrt the sandtray
@@ -274,7 +283,7 @@ if __name__ == "__main__":
         else:
             try:
                 t = tl.getLatestCommonTime("odom", "sandtray")
-      	        if tl.canTransform("odom", "sandtray",t):
+                if tl.canTransform("odom", "sandtray",t):
                     rospy.loginfo("Ok! Starting robot behaviours.")
                     pub_speech.publish(String("Ready to go!"))
                     break
@@ -285,9 +294,10 @@ if __name__ == "__main__":
 
         rospy.sleep(0.5)
 
-    sub_poses = rospy.Subscriber(POSES_TOPIC, PoseStamped, on_pose)
+    sub_poses = rospy.Subscriber(POSES_TOPIC, PoseStamped, on_pose, queue_size=1) # queue_size = 1 to discard all but the most recent pose -- otherwise, tracking would possibly lag
 
     r = rospy.Rate(2)
+
 
     while not rospy.is_shutdown():
         try:
@@ -297,8 +307,11 @@ if __name__ == "__main__":
                 robot_focus = PoseStamped()
                 robot_focus.header.stamp = rospy.Time.now()
                 robot_focus.header.frame_id = "robot_focus"
-                point_at(robot_focus)
-                look_at(robot_focus)
+                if not robot_ready_to_point:
+                    set_pointing_posture()
+                else:
+                    point_at(robot_focus)
+                    look_at(robot_focus)
             else:
                 is_tracking_focus = False
         except Exception as e: # most likely, robot_focus is not published. That's ok, don't track it then
@@ -307,7 +320,10 @@ if __name__ == "__main__":
 
 
         if last_pose and (rospy.Time.now() - last_pose).to_sec() > 2:
-		arm_between_pointing_posture()
+            if (rospy.Time.now() - last_pose).to_sec() < 10:
+                arm_between_pointing_posture()
+            else:
+                arm_to_rest_posture()
 
         r.sleep()
 
