@@ -10,6 +10,7 @@ from threading import Lock
 
 import actionlib
 
+from std_msgs.msg import Empty
 from geometry_msgs.msg import PoseStamped, Point
 from visualization_msgs.msg import MarkerArray, Marker
 import freeplay_sandbox_msgs.msg
@@ -46,7 +47,15 @@ HABITATS = {"zebra": ["yellow", "green"],
 
 tl=None
 
+play_enabled = True
+
 zoneslock = Lock()
+
+def on_drawing(msg):
+    global play_enabled
+
+    play_enabled = not play_enabled
+    rospy.loginfo("Play enabled: %s" % str(play_enabled))
 
 def on_zones_received(msg):
 
@@ -322,6 +331,7 @@ if __name__ == "__main__":
     rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
 
     zones_sub = rospy.Subscriber("zones", MarkerArray, on_zones_received);
+    drawing_sub = rospy.Subscriber("sandtray_drawing", Empty, on_drawing);
 
     rospy.loginfo("Waiting for move_sandbox_items action server...")
     motion = actionlib.SimpleActionClient('move_sandbox_items', freeplay_sandbox_msgs.msg.PlaygroundNavigationAction)
@@ -334,19 +344,24 @@ if __name__ == "__main__":
 
     while not rospy.is_shutdown():
  
-        current_action = GAME_ACTIONS[action_idx]
+        if play_enabled:
+            current_action = GAME_ACTIONS[action_idx]
 
-        if current_action == ANIMAL_PLACEMENT:
-            ok, last_pose = place_random_animal()
-        elif current_action == BLOCK_PLACEMENT:
-            ok, last_pose = place_block(last_pose)
+            if current_action == ANIMAL_PLACEMENT:
+                ok, last_pose = place_random_animal()
+            elif current_action == BLOCK_PLACEMENT:
+                ok, last_pose = place_block(last_pose)
 
-        if ok:
-            rospy.sleep(random.uniform(1.2,2.5))
+            if ok:
+                rospy.sleep(random.uniform(1.2,2.5))
+            else:
+                rospy.sleep(0.3)
+
+            chance = random.random()
+            if not ok or chance > 0.9:
+                rospy.loginfo("Switching to next game action")
+                action_idx= (action_idx+1) % len(GAME_ACTIONS)
+
         else:
             rospy.sleep(0.3)
 
-        chance = random.random()
-        if not ok or chance > 0.9:
-            rospy.loginfo("Switching to next game action")
-            action_idx= (action_idx+1) % len(GAME_ACTIONS)
