@@ -292,7 +292,7 @@ def place_block(close_to=None):
 
     slot = get_empty_slot(close_to)
     if not slot:
-        rospy.loginfo("All slots occupied!")
+        rospy.loginfo("All block slots occupied!")
         return False, None
 
     block = find_closest_block(slot)
@@ -347,5 +347,6 @@ if __name__ == "__main__":
             rospy.sleep(0.3)
 
         chance = random.random()
-        if chance > 0.9:
+        if not ok or chance > 0.9:
+            rospy.loginfo("Switching to next game action")
             action_idx= (action_idx+1) % len(GAME_ACTIONS)
