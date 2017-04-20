@@ -81,7 +81,7 @@ def reachable(pose):
     """
     arm_reach = get_pose(ARM_REACH_FRAME)
     if arm_reach is None:
-        return 0
+        return True
     x,y,z = arm_reach
 
     return dist((x,y), pose) < z # by convention, 'z' is the radius of the reachable zone at sandtray's level
