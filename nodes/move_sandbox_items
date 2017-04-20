@@ -118,7 +118,7 @@ class PlaygroundTrajTrackerAction(object):
                 rospy.loginfo('%s: Preempted' % self._action_name)
                 self._as.set_preempted()
                 success = False
-                break
+                return False
             # publish the feedback
             self._feedback.percentage = i*100./len(requested_traj.poses)
             rospy.loginfo("Done %i%%" % self._feedback.percentage)
