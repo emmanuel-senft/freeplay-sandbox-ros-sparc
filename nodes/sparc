@@ -9,7 +9,7 @@ from threading import Event
 import actionlib
 
 from geometry_msgs.msg import PoseStamped, Point
-from std_msgs.msg import Empty
+from std_msgs.msg import String
 from visualization_msgs.msg import MarkerArray, Marker
 import freeplay_sandbox_msgs.msg
 
@@ -24,7 +24,7 @@ class ItemMover(object):
         rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
 
         self._goal_sub = rospy.Subscriber("goal", PoseStamped, self.on_goal_received)
-        self._release_robot_sub = rospy.Subscriber("release_touch", Empty, self.on_release_robot)
+        self._release_robot_sub = rospy.Subscriber("releasing", String, self.on_release_robot)
 
         self._motion = actionlib.SimpleActionClient('move_sandbox_items', freeplay_sandbox_msgs.msg.PlaygroundNavigationAction)
         self._motion.wait_for_server()
@@ -63,7 +63,6 @@ class ItemMover(object):
         self._motion.send_goal(goal)
 
     def on_release_robot(self,msg):
-        print "received release"
         self._moving_item = None
         self.event_release.set()
 
