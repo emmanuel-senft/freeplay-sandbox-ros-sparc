@@ -49,25 +49,9 @@ class StateAnalyser(object):
         zone_location_type=[]
         zone_location_index=[]
         for item in ITEMS:
-            pose = self.get_pose(item)
-            if  pose is None:
-                continue
-            pose = pose[0], pose[1]
-
-            index = [0]
-            for idx, zone_type in enumerate(self._zone_types):
-                if self.isin(pose, self._zones[zone_type],index):
-                    zone_location_type.append(idx)
-                    zone_location_index.append(index[0])
-#                    print item + " is in " + str(zone_type) + " "  + str(index[0])
-                    break
-            else:
-#                print item + " is in an undefined zone"
-                zone_location_type.append(-1)
-                zone_location_index.append(-1)
-
-#        print "type:  " + str(zone_location_type)
-#        print "index: "+ str(zone_location_index)
+            zone_type, zone_index = self.isin_zone(item)
+            zone_location_type.append(zone_type)
+            zone_location_index.append(zone_index)
         state = zone_location_type+zone_location_index
         self.publish_state(state)
     
@@ -89,6 +73,18 @@ class StateAnalyser(object):
             (trans,rot) = self._tl.lookupTransform(reference, item, rospy.Time(0))
             return trans
         return None
+
+    def isin_zone(self, item):
+        pose = self.get_pose(item)
+        if  pose is None:
+            return -1,-1 
+        pose = pose[0], pose[1]
+
+        index = [0]
+        for idx, zone_type in enumerate(self._zone_types):
+            if self.isin(pose, self._zones[zone_type],index):
+                return idx,index[0]
+        return -1,-1
 
     def isin(self, point, polygons, index=[0]):
         if point is None:
