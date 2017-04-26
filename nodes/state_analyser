@@ -22,7 +22,7 @@ REFERENCE_FRAME="/sandtray"
 ITEMS = ["zebra","elephant","leopard","lion","giraffe","rhino","crocodile","hippo","toychild1","toychild4"]
 
 
-class ItemMover(object):
+class StateAnalyser(object):
     def __init__(self):
         self._tl = tf.TransformListener()
         rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
@@ -141,10 +141,9 @@ class ItemMover(object):
 
 if __name__ == "__main__":
 
-    rospy.init_node('sandbox_player')
-    ARM_REACH_FRAME = rospy.get_param('~arm_reach_frame', "arm_reach")
+    rospy.init_node('state_analyser')
 
     rospy.loginfo("Initializing TF...")
-    mover = ItemMover()
-    signal.signal(signal.SIGINT, mover.signal_handler)
-    mover.run()
+    analyser = StateAnalyser()
+    signal.signal(signal.SIGINT, analyser.signal_handler)
+    analyser.run()
