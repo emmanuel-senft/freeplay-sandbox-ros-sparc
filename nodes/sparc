@@ -24,7 +24,7 @@ class ItemMover(object):
         rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
 
         self._goal_sub = rospy.Subscriber("goal", PoseStamped, self.on_goal_received)
-        self._release_robot_sub = rospy.Subscriber("releasing", String, self.on_release_robot)
+        self._release_robot_sub = rospy.Subscriber("events", String, self.on_event)
 
         self._motion = actionlib.SimpleActionClient('move_sandbox_items', freeplay_sandbox_msgs.msg.PlaygroundNavigationAction)
         self._motion.wait_for_server()
@@ -62,9 +62,10 @@ class ItemMover(object):
         goal = freeplay_sandbox_msgs.msg.PlaygroundNavigationGoal(item=movementPose.header.frame_id,goal=pose)
         self._motion.send_goal(goal)
 
-    def on_release_robot(self,msg):
-        self._moving_item = None
-        self.event_release.set()
+    def on_event(self,msg):
+        if msg.data.startswith("releasing_"):
+            self._moving_item = None
+            self.event_release.set()
 
     def get_pose(self,item, reference=REFERENCE_FRAME):
         if item not in self._tl.getFrameStrings():
