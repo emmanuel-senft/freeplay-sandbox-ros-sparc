@@ -1,0 +1,150 @@
+#!/usr/bin/env python
+import numpy
+import random
+import signal
+import sys
+
+import math
+import rospy
+import tf
+from threading import Event, Lock, Timer
+import actionlib
+
+from geometry_msgs.msg import PoseStamped, Point
+from std_msgs.msg import String, Float32MultiArray
+from visualization_msgs.msg import MarkerArray, Marker
+from freeplay_sandbox_msgs.msg import ListIntStamped
+
+MAP_HEIGHT=0.335
+
+REFERENCE_FRAME="/sandtray"
+
+ITEMS = ["zebra","elephant","leopard","lion","giraffe","rhino","crocodile","hippo","toychild1","toychild4"]
+
+
+class ItemMover(object):
+    def __init__(self):
+        self._tl = tf.TransformListener()
+        rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
+
+        self._event_sub = rospy.Subscriber("events", String, self.on_event)
+        self._zones_sub = rospy.Subscriber("zones", MarkerArray, self.on_zones)
+
+        self._state_pub = rospy.Publisher("state", ListIntStamped, queue_size = 5)
+
+        self._zones={}
+        self._zone_types = set()
+        self._zoneslock = Lock()
+        self._stopping = False
+
+        rospy.loginfo("Ready to play!")
+        
+        Timer(0.5, self.get_state).start()
+        #self.get_state()
+
+    def get_state(self):
+        if self._stopping:
+            return
+        Timer(0.5, self.get_state).start()
+        zone_location_type=[]
+        zone_location_index=[]
+        for item in ITEMS:
+            pose = self.get_pose(item)
+            if  pose is None:
+                continue
+            pose = pose[0], pose[1]
+
+            index = [0]
+            for idx, zone_type in enumerate(self._zone_types):
+                if self.isin(pose, self._zones[zone_type],index):
+                    zone_location_type.append(idx)
+                    zone_location_index.append(index[0])
+#                    print item + " is in " + str(zone_type) + " "  + str(index[0])
+                    break
+            else:
+#                print item + " is in an undefined zone"
+                zone_location_type.append(-1)
+                zone_location_index.append(-1)
+
+#        print "type:  " + str(zone_location_type)
+#        print "index: "+ str(zone_location_index)
+        state = zone_location_type+zone_location_index
+        self.publish_state(state)
+    
+    def publish_state(self,state):
+        message = ListIntStamped()
+        message.header.frame_id = REFERENCE_FRAME
+        message.header.stamp = rospy.Time(0)
+        for a in state:
+            message.data.append(a)
+        self._state_pub.publish(message)
+        pass
+
+
+    def get_pose(self, item, reference=REFERENCE_FRAME):
+        if item not in self._tl.getFrameStrings():
+            rospy.logwarn_throttle(20,"%s is not yet published." % item)
+            return None
+        if self._tl.canTransform(reference, item, rospy.Time(0)):
+            (trans,rot) = self._tl.lookupTransform(reference, item, rospy.Time(0))
+            return trans
+        return None
+
+    def isin(self, point, polygons, index=[0]):
+        if point is None:
+            return False
+
+        x,y = point
+
+        for idx, polygon in enumerate(polygons):
+            n = len(polygon)
+            inside = False
+
+            p1x,p1y = polygon[0]
+            for i in range (1,n+1):
+                p2x,p2y = polygon[i % n]
+                if y > min(p1y,p2y):
+                    if y <= max(p1y,p2y):
+                        if x <= max(p1x,p2x):
+                            if p1y != p2y:
+                                xinters = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x
+                                if p1x == p2x or x <= xinters:
+                                    inside = not inside
+                p1x,p1y = p2x,p2y
+            if inside:
+                index[0] = idx
+                return True
+        return False
+
+
+    def run(self):
+        rospy.spin()
+
+    def on_event(self, event):
+        pass
+
+    def on_zones(self, zones):
+        self._zoneslock.acquire()
+        self._zones.clear()
+        for zone in zones.markers:
+            if zone.action == Marker.ADD:
+                name = zone.ns.split("_")[-1]
+                self._zone_types.add(name)
+                rospy.loginfo("Adding/updating a %s zone" % name)
+                self._zones.setdefault(name, []).append([(p.x,p.y) for p in zone.points])
+
+        self._zoneslock.release()
+
+    def signal_handler(self, signal, frame):
+            self._stopping = True
+            sys.exit(0)
+
+if __name__ == "__main__":
+
+    rospy.init_node('sandbox_player')
+    ARM_REACH_FRAME = rospy.get_param('~arm_reach_frame', "arm_reach")
+
+    rospy.loginfo("Initializing TF...")
+    mover = ItemMover()
+    signal.signal(signal.SIGINT, mover.signal_handler)
+    mover.run()
