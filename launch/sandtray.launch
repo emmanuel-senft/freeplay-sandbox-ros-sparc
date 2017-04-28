@@ -4,7 +4,7 @@
     <arg name="env_camera"      default="env_camera" />
 
     <param name="sandtray_description" command="$(find xacro)/xacro --inorder
-                                                $(find freeplay_sandbox)/urdf/sandtray.xacro
+                                                $(find freeplay_sparc)/urdf/sandtray.xacro
                                                 camera1:=$(arg camera1)
                                                 camera2:=$(arg camera2)
                                                 env_camera:=$(arg env_camera)" />

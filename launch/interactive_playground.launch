@@ -1,19 +1,19 @@
 <launch>
 
     <!-- load sandtray URDF + cameras frames -->
-    <include file="$(find freeplay_sandbox)/launch/sandtray.launch" />
+    <include file="$(find freeplay_sparc)/launch/sandtray.launch" />
 
     <!-- build an occupancy map based on the positions of the objects within the
          sandbox, and provide a path planning service to move around said objects -->
-    <node pkg="freeplay_sandbox" type="sandbox_map_and_plan" name="map_and_plan" required="true" />
+    <node pkg="freeplay_sparc" type="sandbox_map_and_plan" name="map_and_plan" required="true" />
 
     <!-- creates an action server to move sandbox objects to specific positions, 
          using the path planner -->
-    <node pkg="freeplay_sandbox" type="move_sandbox_items" name="move_sandbox_items" required="true" />
+    <node pkg="freeplay_sparc" type="move_sandbox_items" name="move_sandbox_items" required="true" />
 
     <!-- process the sandbox background image to extract possible zones using
          colour-based segmentation -->
-    <node pkg="freeplay_sandbox" type="zones_from_image" name="sandbox_zones_from_image" output="screen">
+    <node pkg="freeplay_sparc" type="zones_from_image" name="sandbox_zones_from_image" output="screen">
         <remap from="/image" to="/sandbox/image"/>
         <remap from="/camera_info" to="/sandbox/camera_info"/>
     </node>
