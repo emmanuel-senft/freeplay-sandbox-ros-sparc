@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import numpy
+import numpy as np
 import random
 import signal
 import sys
@@ -11,7 +11,7 @@ from threading import Event, Lock, Timer
 import actionlib
 
 from geometry_msgs.msg import PoseStamped, Point
-from std_msgs.msg import String, Float32MultiArray
+from std_msgs.msg import String, Float32MultiArray, Int32MultiArray, MultiArrayDimension
 from visualization_msgs.msg import MarkerArray, Marker
 from freeplay_sandbox_msgs.msg import ListIntStamped
 
@@ -31,7 +31,7 @@ class StateAnalyser(object):
         self._event_sub = rospy.Subscriber("events", String, self.on_event)
         self._zones_sub = rospy.Subscriber("zones", MarkerArray, self.on_zones)
 
-        self._state_pub = rospy.Publisher("state", ListIntStamped, queue_size = 5)
+        self._state_pub = rospy.Publisher("state", Int32MultiArray, queue_size = 5)
 
         self._zones={}
         self._zone_types = set()
@@ -47,22 +47,32 @@ class StateAnalyser(object):
         if self._stopping:
             return
         Timer(0.5, self.get_state).start()
+        state=np.zeros(shape=(len(ITEMS),2))
+        stateLabel=["items","state"]
         zone_location_type=[]
         zone_location_index=[]
-        for item in ITEMS:
+        for idx, item in enumerate(ITEMS):
             zone_type, zone_index = self.isin_zone(item)
             if zone_type != -1:
                 zone_type = COLORS.index(zone_type)
-            zone_location_type.append(zone_type)
-            zone_location_index.append(zone_index)
-        state = zone_location_type+zone_location_index
-        self.publish_state(state)
+            state[idx]=[zone_type,zone_index]
+        self.publish_state(state,stateLabel)
     
-    def publish_state(self,state):
-        message = ListIntStamped()
-        message.header.frame_id = REFERENCE_FRAME
-        message.header.stamp = rospy.Time(0)
-        for a in state:
+    def publish_state(self,state,labels):
+        message = Int32MultiArray()
+        #message.header.frame_id = REFERENCE_FRAME
+        #message.header.stamp = rospy.Time(0)
+        dim1 = MultiArrayDimension()
+        dim2 = MultiArrayDimension()
+        dim1.label = labels[0]
+        dim1.size = state.shape[0]
+        dim1.stride = state.size
+        message.layout.dim.append(dim1)
+        dim2.label = labels[1]
+        dim2.size = state.shape[1]
+        dim2.stride = state.shape[1]
+        message.layout.dim.append(dim2)
+        for a in state.flat[:]:
             message.data.append(a)
         self._state_pub.publish(message)
         pass
