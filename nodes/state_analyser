@@ -21,6 +21,7 @@ REFERENCE_FRAME="/sandtray"
 
 ITEMS = ["zebra","elephant","leopard","lion","giraffe","rhino","crocodile","hippo","toychild1","toychild4"]
 
+COLORS = ["black","white","purple","blue","green","yellow","red"]
 
 class StateAnalyser(object):
     def __init__(self):
@@ -50,6 +51,8 @@ class StateAnalyser(object):
         zone_location_index=[]
         for item in ITEMS:
             zone_type, zone_index = self.isin_zone(item)
+            if zone_type != -1:
+                zone_type = COLORS.index(zone_type)
             zone_location_type.append(zone_type)
             zone_location_index.append(zone_index)
         state = zone_location_type+zone_location_index
@@ -81,9 +84,10 @@ class StateAnalyser(object):
         pose = pose[0], pose[1]
 
         index = [0]
-        for idx, zone_type in enumerate(self._zone_types):
-            if self.isin(pose, self._zones[zone_type],index):
-                return idx,index[0]
+        for zone_type in enumerate(self._zone_types):
+            if zone_type[1] in self._zones:
+                if self.isin(pose, self._zones[zone_type[1]],index):
+                    return zone_type[1],index[0]
         return -1,-1
 
     def isin(self, point, polygons, index=[0]):
