@@ -114,7 +114,7 @@ install(DIRECTORY
 catkin_install_python(PROGRAMS
     nodes/move_sandbox_items
     nodes/play
-    nodes/sparc
+    nodes/executor
     nodes/state_analyser
     nodes/zones_from_image
     nodes/nao_behaviours
