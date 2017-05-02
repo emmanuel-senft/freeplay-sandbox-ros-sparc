@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import numpy
+import numpy as np
 import random
 import signal
 import sys
@@ -22,6 +22,10 @@ REFERENCE_FRAME="/sandtray"
 ITEMS = ["zebra","elephant","leopard","lion","giraffe","rhino","crocodile","hippo","toychild1","toychild4"]
 ACTION_TYPES = ["move"]
 
+COLORS = ["black","white","purple","blue","green","yellow","red"]
+
+SPATIAL_THING = COLORS+ITEMS
+
 class ActionAnalyser(object):
     def __init__(self):
         self._tl = tf.TransformListener()
@@ -30,19 +34,25 @@ class ActionAnalyser(object):
         self._event_sub = rospy.Subscriber("events", String, self.on_event)
         self._goal_sub = rospy.Subscriber("goal", PoseStamped, self.on_goal)
         self._zones_sub = rospy.Subscriber("zones", MarkerArray, self.on_zones)
+        self._dis_action_proposed = rospy.Subscriber("actions", ListIntStamped, self.on_action_proposed)
 
         self._state_pub = rospy.Publisher("actions", ListIntStamped, queue_size = 5)
+        self._cont_action_proposed = rospy.Publisher("moveProposed", PoseStamped, queue_size = 5)
 
         self._zones={}
         self._zone_types = set()
         self._zoneslock = Lock()
 
-        
-        #self.get_state()
+    def on_action_proposed(self, message):
+        int_list = message.data
+        action = message.data[0]
+        action_object=message.data[1]
+        action_target=message.data[2]
+        zone = int(action_target/100)
+        index = action_target-100*zone
 
     def on_goal(self, movementPose):
         item = movementPose.header.frame_id
-
         pose = self.get_pose(item)
         if pose is None:
             return
@@ -54,36 +64,26 @@ class ActionAnalyser(object):
         pose = pose.pose.position
         destination = self.isin_zone((pose.x,pose.y))
 
-        print str(item_id) + " " + str(origin) + " " + str(destination)
-        self.publish_action(ACTION_TYPES.index("move"),item_id, 100*destination[0]+destination[1])
-
-    def isin_zone(self,pose):
+        pose=pose.x, pose.y
+        zone_type, zone_index = self.isin_zone(item)
+        closest = self.get_closest(item,pose, zone_type, zone_index)
+        closest[0] = SPATIAL_THING.index(closest[0])
+        closest[2] = SPATIAL_THING.index(closest[2])
+        closest[4] = SPATIAL_THING.index(closest[4])
+        goal_state = [zone_type, zone_index]+closest    
+        self.publish_action(ACTION_TYPES.index("move"),item_id, goal_state)
+ 
+    def isin_zone(self, pose):
+        if  pose is None:
+            return -1,-1 
         pose = pose[0], pose[1]
+
         index = [0]
-        for idx, zone_type in enumerate(self._zone_types):
-            if self.isin(pose, self._zones[zone_type],index):
-                return idx, index[0]
+        for zone_type in enumerate(self._zone_types):
+            if zone_type[1] in self._zones:
+                if self.isin(pose, self._zones[zone_type[1]],index):
+                    return zone_type[1],index[0]
         return -1,-1
-   
-    def publish_action(self, action_type, action_object, action_target):
-        message = ListIntStamped()
-        message.header.frame_id = REFERENCE_FRAME
-        message.header.stamp = rospy.Time(0)
-        message.data.append(action_type)
-        message.data.append(action_object)
-        message.data.append(action_target)
-        self._state_pub.publish(message)
-        pass
-
-
-    def get_pose(self, item, reference=REFERENCE_FRAME):
-        if item not in self._tl.getFrameStrings():
-            rospy.logwarn_throttle(20,"%s is not yet published." % item)
-            return None
-        if self._tl.canTransform(reference, item, rospy.Time(0)):
-            (trans,rot) = self._tl.lookupTransform(reference, item, rospy.Time(0))
-            return trans
-        return None
 
     def isin(self, point, polygons, index=[0]):
         if point is None:
@@ -110,7 +110,50 @@ class ActionAnalyser(object):
                 index[0] = idx
                 return True
         return False
+ 
+    def get_closest(self, item,pose, zone_in_type, zone_in_index):
+        distances=[]
+        spatial_thing=[]
+        for other_item in ITEMS:
+            if other_item != item:
+                distances.append(self.dist(self.get_pose(other_item), pose))
+                spatial_thing.append([other_item,0])
 
+        vectDist=np.vectorize(self.dist)
+
+        for zone_type in enumerate(self._zone_types):
+            if zone_type[1] in self._zones:
+                for idx,polygon in enumerate(self._zones[zone_type[1]]):
+                    if zone_type[1] == zone_in_type and zone_in_index == idx:
+                        continue
+                    spatial_thing.append([zone_type[1], idx])
+                    d=[]
+                    for point in polygon:
+                        d.append(self.dist(point,pose))
+                    distances.append(min(d))
+        close_indexes =np.argpartition(distances,3)[:3]
+        return spatial_thing[close_indexes[0]]+spatial_thing[close_indexes[1]]+spatial_thing[close_indexes[2]] 
+ 
+    def publish_action(self, action_type, action_object, action_target):
+        message = ListIntStamped()
+        message.header.frame_id = REFERENCE_FRAME
+        message.header.stamp = rospy.Time(0)
+        message.data.append(action_type)
+        message.data.append(action_object)
+        for target in action_target:
+            message.data.append(target)
+        self._state_pub.publish(message)
+        pass
+
+
+    def get_pose(self, item, reference=REFERENCE_FRAME):
+        if item not in self._tl.getFrameStrings():
+            rospy.logwarn_throttle(20,"%s is not yet published." % item)
+            return None
+        if self._tl.canTransform(reference, item, rospy.Time(0)):
+            (trans,rot) = self._tl.lookupTransform(reference, item, rospy.Time(0))
+            return trans
+        return None
 
     def run(self):
         rospy.spin()
@@ -129,6 +172,10 @@ class ActionAnalyser(object):
                 self._zones.setdefault(name, []).append([(p.x,p.y) for p in zone.points])
 
         self._zoneslock.release()
+
+    def dist(self, a, b):
+        return pow(a[0]-b[0],2)+pow(a[1]-b[1],2)
+
 
 if __name__ == "__main__":
 
