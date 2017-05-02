@@ -5,10 +5,13 @@ import signal
 import sys
 
 import math
+import heapq
+
 import rospy
 import tf
 from threading import Event, Lock, Timer
 import actionlib
+
 
 from geometry_msgs.msg import PoseStamped, Point
 from std_msgs.msg import String, Float32MultiArray, Int32MultiArray, MultiArrayDimension
@@ -22,6 +25,8 @@ REFERENCE_FRAME="/sandtray"
 ITEMS = ["zebra","elephant","leopard","lion","giraffe","rhino","crocodile","hippo","toychild1","toychild4"]
 
 COLORS = ["black","white","purple","blue","green","yellow","red"]
+
+SPATIAL_THING = COLORS+ITEMS
 
 class StateAnalyser(object):
     def __init__(self):
@@ -47,15 +52,19 @@ class StateAnalyser(object):
         if self._stopping:
             return
         Timer(0.5, self.get_state).start()
-        state=np.zeros(shape=(len(ITEMS),2))
+        state=np.zeros(shape=(len(ITEMS),8))
         stateLabel=["items","state"]
         zone_location_type=[]
         zone_location_index=[]
         for idx, item in enumerate(ITEMS):
             zone_type, zone_index = self.isin_zone(item)
+            closest = self.get_closest(item,zone_type,zone_index)
+            closest[0] = SPATIAL_THING.index(closest[0])
+            closest[2] = SPATIAL_THING.index(closest[2])
+            closest[4] = SPATIAL_THING.index(closest[4])
             if zone_type != -1:
                 zone_type = COLORS.index(zone_type)
-            state[idx]=[zone_type,zone_index]
+            state[idx]=[zone_type,zone_index] + closest
         self.publish_state(state,stateLabel)
     
     def publish_state(self,state,labels):
@@ -77,6 +86,29 @@ class StateAnalyser(object):
         self._state_pub.publish(message)
         pass
 
+    def get_closest(self, item, zone_in_type, zone_in_index):
+        distances=[]
+        spatial_thing=[]
+        pose = self.get_pose(item)
+        for other_item in ITEMS:
+            if other_item != item:
+                distances.append(self.dist(self.get_pose(other_item), pose))
+                spatial_thing.append([other_item,0])
+
+        vectDist=np.vectorize(self.dist)
+
+        for zone_type in enumerate(self._zone_types):
+            if zone_type[1] in self._zones:
+                for idx,polygon in enumerate(self._zones[zone_type[1]]):
+                    if zone_type[1] == zone_in_type and zone_in_index == idx:
+                        continue
+                    spatial_thing.append([zone_type[1], idx])
+                    d=[]
+                    for point in polygon:
+                        d.append(self.dist(point,pose))
+                    distances.append(min(d))
+        close_indexes =np.argpartition(distances,3)[:3]
+        return spatial_thing[close_indexes[0]]+spatial_thing[close_indexes[1]]+spatial_thing[close_indexes[2]] 
 
     def get_pose(self, item, reference=REFERENCE_FRAME):
         if item not in self._tl.getFrameStrings():
@@ -149,6 +181,8 @@ class StateAnalyser(object):
             self._stopping = True
             sys.exit(0)
 
+    def dist(self, a, b):
+        return pow(a[0]-b[0],2)+pow(a[1]-b[1],2)
 if __name__ == "__main__":
 
     rospy.init_node('state_analyser')
