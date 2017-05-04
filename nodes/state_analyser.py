@@ -22,9 +22,9 @@ MAP_HEIGHT=0.335
 
 REFERENCE_FRAME="/sandtray"
 
-ITEMS = ["zebra","elephant","leopard","lion","giraffe","rhino","crocodile","hippo","toychild1","toychild4"]
+ITEMS = ["zebra","elephant","ball","lion","giraffe","caravan","crocodile","hippo","boy","girl"]
 
-COLORS = ["black","white","purple","blue","green","yellow","red"]
+COLORS = ["black","white","purple","blue","green","yellow","red","out"]
 
 SPATIAL_THING = COLORS+ITEMS
 
@@ -43,21 +43,21 @@ class StateAnalyser(object):
         self._zoneslock = Lock()
         self._stopping = False
 
+        self._state=np.zeros(shape=(len(ITEMS),8),dtype = int)
+
         rospy.loginfo("Ready to play!")
         
-        Timer(0.5, self.get_state).start()
-        #self.get_state()
+        self.get_state()
 
     def get_state(self):
         if self._stopping:
             return
         Timer(0.5, self.get_state).start()
-        state=np.zeros(shape=(len(ITEMS),8))
         stateLabel=["items","state"]
         zone_location_type=[]
         zone_location_index=[]
         for idx, item in enumerate(ITEMS):
-            zone_type, zone_index = self.isin_zone(item)
+            zone_type, zone_index = self.zone_item(item)
             closest = self.get_closest(item,zone_type,zone_index)
             if closest == (-1,-1):
                 return
@@ -66,8 +66,8 @@ class StateAnalyser(object):
             closest[4] = SPATIAL_THING.index(closest[4])
             if zone_type != -1:
                 zone_type = COLORS.index(zone_type)
-            state[idx]=[zone_type,zone_index] + closest
-        self.publish_state(state,stateLabel)
+            self._state[idx]=[zone_type,zone_index] + closest
+        self.publish_state(self._state,stateLabel)
     
     def publish_state(self,state,labels):
         message = Int32MultiArray()
@@ -88,10 +88,11 @@ class StateAnalyser(object):
         self._state_pub.publish(message)
         pass
 
-    def get_closest(self, item, zone_in_type, zone_in_index):
+    def get_closest(self, item, zone_in_type, zone_in_index, pose = None):
         distances=[]
         spatial_thing=[]
-        pose = self.get_pose(item)
+        if pose is None:
+            pose = self.get_pose(item)
         if  pose is None:
             return -1,-1 
         for other_item in ITEMS:
@@ -123,12 +124,15 @@ class StateAnalyser(object):
             return trans
         return None
 
-    def isin_zone(self, item):
+    def zone_item(self, item):
         pose = self.get_pose(item)
         if  pose is None:
             return -1,-1 
         pose = pose[0], pose[1]
+        return self.isin_zone(pose)
 
+
+    def isin_zone(self, pose):
         index = [0]
         for zone_type in enumerate(self._zone_types):
             if zone_type[1] in self._zones:
@@ -172,13 +176,23 @@ class StateAnalyser(object):
     def on_zones(self, zones):
         self._zoneslock.acquire()
         self._zones.clear()
+        xmax = 0
+        ymin = 0
         for zone in zones.markers:
             if zone.action == Marker.ADD:
                 name = zone.ns.split("_")[-1]
                 self._zone_types.add(name)
                 rospy.loginfo("Adding/updating a %s zone" % name)
                 self._zones.setdefault(name, []).append([(p.x,p.y) for p in zone.points])
+                for point in zone.points:
+                    xmax = max(xmax, point.x)
+                    ymin = min(ymin, point.y)
+                    
+        self._zone_types.add(COLORS[-1])
+        self._zones.setdefault(COLORS[-1],[]).append([(xmax,0),(xmax,ymin), (xmax/0.88,ymin),(xmax/0.88,0)])
+        print self._zone_types
 
+        print "xmax " + str(xmax) + " ymin " + str(ymin)
         self._zoneslock.release()
 
     def signal_handler(self, signal, frame):
@@ -187,6 +201,53 @@ class StateAnalyser(object):
 
     def dist(self, a, b):
         return pow(a[0]-b[0],2)+pow(a[1]-b[1],2)
+
+    def get_point_in_zone(self, zone_type, zone_id, closeto=None):
+        if len(self._zones) == 0 or len(self._zones[zone_type])==0:
+            return None
+        if zone_id == -1:
+            regions = random.sample(self._zones[zone_type],len(self._zones[zone_type]))
+        else:
+            regions = self._zones[zone_type]
+            regions = [regions[zone_id]]
+
+        candidates = []
+        for poly in regions:
+            x=0;y=0;
+            for p in poly:
+                dx,dy = p
+                x+=dx
+                y+=dy
+            candidates.append((x/len(poly), y/len(poly)))
+
+        best_dist = 1000
+        best_candidate = None
+
+        for c in candidates:
+            if closeto:
+                d=dist(c,closeto)
+                if d<best_dist:
+                    best_dist =d
+                    best_candidate = Point(x=c[0],y=c[1])
+            else:
+                return Point(x=c[0],y=c[1])
+
+        return best_candidate
+
+    def get_state_pose(self, item, stamped_pose):
+        pose = self.get_pose(item)
+        if pose is None:
+            return None
+        
+        item_id = ITEMS.index(item)
+        pose = self._tl.transformPose(REFERENCE_FRAME,stamped_pose)
+        pose = pose.pose.position
+        pose = pose.x, pose.y
+        zone_type, zone_index = self.isin_zone(pose)
+        closest = self.get_closest(item, zone_type, zone_index, pose = pose)
+        return zone_type, zone_index, closest
+
+
 if __name__ == "__main__":
 
     rospy.init_node('state_analyser')
