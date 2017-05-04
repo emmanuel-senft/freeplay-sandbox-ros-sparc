@@ -19,17 +19,15 @@ MAP_HEIGHT=0.335
 
 REFERENCE_FRAME="/sandtray"
 
-ITEMS = ["zebra","elephant","leopard","lion","giraffe","rhino","crocodile","hippo","toychild1","toychild4"]
+ITEMS = ["zebra","elephant","ball","lion","giraffe","caravan","crocodile","hippo","boy","girl"]
 ACTION_TYPES = ["move"]
 
-COLORS = ["black","white","purple","blue","green","yellow","red"]
+COLORS = ["black","white","purple","blue","green","yellow","red","out"]
 
 SPATIAL_THING = COLORS+ITEMS
 
 class ActionAnalyser(object):
     def __init__(self):
-        self._tl = tf.TransformListener()
-        rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
 
         self._event_sub = rospy.Subscriber("events", String, self.on_event)
         self._selected_action_sub = rospy.Subscriber("sparc/selected_action",freeplay_sandbox_msgs.msg.ContinuousAction , self.on_selected_action)
