@@ -34,21 +34,34 @@ class ActionAnalyser(object):
         self._event_sub = rospy.Subscriber("events", String, self.on_event)
         self._selected_action_sub = rospy.Subscriber("sparc/selected_action",freeplay_sandbox_msgs.msg.ContinuousAction , self.on_selected_action)
         self._zones_sub = rospy.Subscriber("zones", MarkerArray, self.on_zones)
-        self._dis_action_proposed = rospy.Subscriber("actions", ListIntStamped, self.on_action_proposed)
 
         self._state_pub = rospy.Publisher("actions", ListIntStamped, queue_size = 5)
+        self._proposed_action_sub = rospy.Subscriber("sparc/dis_action_proposed",freeplay_sandbox_msgs.msg.DiscreteAction, self.on_action_proposed)
+        self._proposed_action_pub = rospy.Publisher("sparc/proposed_action", freeplay_sandbox_msgs.msg.ContinuousAction, queue_size = 5)
 
         self._zones={}
         self._zone_types = set()
         self._zoneslock = Lock()
 
     def on_action_proposed(self, message):
-        int_list = message.data
+        data = message.data
         action = message.data[0]
-        action_object=message.data[1]
-        action_target=message.data[2]
-        zone = int(action_target/100)
-        index = action_target-100*zone
+        if action == ACTION_TYPES.index("move"):
+            #Add closest
+            target = self.get_point_in_zone(COLORS[data[2]],data[3])
+            message = freeplay_sandbox_msgs.msg.ContinuousAction()
+            message.header.frame_id = ITEMS[data[1]]
+            message.header.stamp = rospy.Time(0)
+            message.pose.position.x = target.x
+            message.pose.position.y = target.y
+            message.pose.position.z = 0
+            message.pose.orientation.x = 0
+            message.pose.orientation.y = 0
+            message.pose.orientation.z = 0
+            message.pose.orientation.w = 1.
+            message.strings.append("zebra")
+            message.strings.append("lion")
+            self._proposed_action_pub.publish(message)
 
     def on_selected_action(self, message):
         item = message.header.frame_id
@@ -173,9 +186,41 @@ class ActionAnalyser(object):
 
         self._zoneslock.release()
 
-    def dist(self, a, b):
+
+    def dist(self, a, b=(0,0)):
         return pow(a[0]-b[0],2)+pow(a[1]-b[1],2)
 
+    def get_point_in_zone(self, zone_type, zone_id, closeto=None):
+        if len(self._zones) == 0 or len(self._zones[zone_type])==0:
+            return None
+        if zone_id == -1:
+            regions = random.sample(self._zones[zone_type],len(self._zones[zone_type]))
+        else:
+            regions = self._zones[zone_type]
+            regions = [regions[zone_id]]
+
+        candidates = []
+        for poly in regions:
+            x=0;y=0;
+            for p in poly:
+                dx,dy = p
+                x+=dx
+                y+=dy
+            candidates.append((x/len(poly), y/len(poly)))
+
+        best_dist = 1000
+        best_candidate = None
+
+        for c in candidates:
+            if closeto:
+                d=dist(c,closeto)
+                if d<best_dist:
+                    best_dist =d
+                    best_candidate = Point(x=c[0],y=c[1])
+            else:
+                return Point(x=c[0],y=c[1])
+
+        return best_candidate
 
 if __name__ == "__main__":
 
