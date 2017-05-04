@@ -13,7 +13,6 @@ import actionlib
 from geometry_msgs.msg import PoseStamped, Point
 from std_msgs.msg import String, Float32MultiArray
 from visualization_msgs.msg import MarkerArray, Marker
-from freeplay_sandbox_msgs.msg import ListIntStamped
 import freeplay_sandbox_msgs
 MAP_HEIGHT=0.335
 
@@ -35,8 +34,8 @@ class ActionAnalyser(object):
         self._selected_action_sub = rospy.Subscriber("sparc/selected_action",freeplay_sandbox_msgs.msg.ContinuousAction , self.on_selected_action)
         self._zones_sub = rospy.Subscriber("zones", MarkerArray, self.on_zones)
 
-        self._state_pub = rospy.Publisher("actions", ListIntStamped, queue_size = 5)
         self._proposed_action_sub = rospy.Subscriber("sparc/dis_action_proposed",freeplay_sandbox_msgs.msg.DiscreteAction, self.on_action_proposed)
+        self._selected_action_pub = rospy.Publisher("sparc/dis_action_selected", freeplay_sandbox_msgs.msg.DiscreteAction, queue_size = 5)
         self._proposed_action_pub = rospy.Publisher("sparc/proposed_action", freeplay_sandbox_msgs.msg.ContinuousAction, queue_size = 5)
 
         self._zones={}
