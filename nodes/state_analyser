@@ -59,6 +59,8 @@ class StateAnalyser(object):
         for idx, item in enumerate(ITEMS):
             zone_type, zone_index = self.isin_zone(item)
             closest = self.get_closest(item,zone_type,zone_index)
+            if closest == (-1,-1):
+                return
             closest[0] = SPATIAL_THING.index(closest[0])
             closest[2] = SPATIAL_THING.index(closest[2])
             closest[4] = SPATIAL_THING.index(closest[4])
@@ -90,6 +92,8 @@ class StateAnalyser(object):
         distances=[]
         spatial_thing=[]
         pose = self.get_pose(item)
+        if  pose is None:
+            return -1,-1 
         for other_item in ITEMS:
             if other_item != item:
                 distances.append(self.dist(self.get_pose(other_item), pose))
