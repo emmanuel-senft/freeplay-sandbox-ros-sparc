@@ -14,7 +14,7 @@ from geometry_msgs.msg import PoseStamped, Point
 from std_msgs.msg import String, Float32MultiArray
 from visualization_msgs.msg import MarkerArray, Marker
 from freeplay_sandbox_msgs.msg import ListIntStamped
-
+import freeplay_sandbox_msgs
 MAP_HEIGHT=0.335
 
 REFERENCE_FRAME="/sandtray"
@@ -32,12 +32,11 @@ class ActionAnalyser(object):
         rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
 
         self._event_sub = rospy.Subscriber("events", String, self.on_event)
-        self._goal_sub = rospy.Subscriber("goal", PoseStamped, self.on_goal)
+        self._selected_action_sub = rospy.Subscriber("sparc/selected_action",freeplay_sandbox_msgs.msg.ContinuousAction , self.on_selected_action)
         self._zones_sub = rospy.Subscriber("zones", MarkerArray, self.on_zones)
         self._dis_action_proposed = rospy.Subscriber("actions", ListIntStamped, self.on_action_proposed)
 
         self._state_pub = rospy.Publisher("actions", ListIntStamped, queue_size = 5)
-        self._cont_action_proposed = rospy.Publisher("moveProposed", PoseStamped, queue_size = 5)
 
         self._zones={}
         self._zone_types = set()
@@ -51,8 +50,8 @@ class ActionAnalyser(object):
         zone = int(action_target/100)
         index = action_target-100*zone
 
-    def on_goal(self, movementPose):
-        item = movementPose.header.frame_id
+    def on_selected_action(self, message):
+        item = message.header.frame_id
         pose = self.get_pose(item)
         if pose is None:
             return
@@ -60,19 +59,20 @@ class ActionAnalyser(object):
         item_id = ITEMS.index(item)
         origin = self.isin_zone(pose)
 
-        pose = self._tl.transformPose("sandtray", movementPose)
+        pose = self._tl.transformPose("sandtray", message)
         pose = pose.pose.position
-        destination = self.isin_zone((pose.x,pose.y))
 
         pose=pose.x, pose.y
-        zone_type, zone_index = self.isin_zone(item)
+        zone_type, zone_index = self.isin_zone(pose)
         closest = self.get_closest(item,pose, zone_type, zone_index)
         closest[0] = SPATIAL_THING.index(closest[0])
         closest[2] = SPATIAL_THING.index(closest[2])
         closest[4] = SPATIAL_THING.index(closest[4])
+        if zone_type != -1:
+            zone_type = SPATIAL_THING.index(zone_type)
         goal_state = [zone_type, zone_index]+closest    
         self.publish_action(ACTION_TYPES.index("move"),item_id, goal_state)
- 
+
     def isin_zone(self, pose):
         if  pose is None:
             return -1,-1 
