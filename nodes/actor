@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+import numpy as np
+import math
+import time, threading
+
+import rospy
+from freeplay_sandbox_msgs.msg import DiscreteAction 
+from std_msgs.msg import Int32MultiArray
+
+class Actor(object):
+    def __init__(self):
+        self._state_sub = rospy.Subscriber("sparc/state", Int32MultiArray, self.on_state)
+        self._action_sub = rospy.Subscriber("sparc/dis_action_selected",DiscreteAction, self.on_action)
+        self._action_pub = rospy.Publisher("sparc/dis_action_proposed", DiscreteAction, queue_size = 5)
+
+    def on_state(self, message):
+        pass 
+
+    def on_action(self, message):
+        pass
+
+    def select_action(self):
+        print "select"
+        message = DiscreteAction()
+        message.header.frame_id = "sandtray"
+        message.header.stamp = rospy.Time(0)
+        message.data.append(0)
+        message.data.append(0)
+        message.data.append(0)
+        message.data.append(-1)
+        message.data.append(0)
+        message.data.append(0)
+        message.data.append(0)
+        message.data.append(0)
+        message.data.append(0)
+        message.data.append(0)
+        self._action_pub.publish(message)
+
+        threading.Timer(5,self.select_action).start()
+
+    def run(self):
+        threading.Timer(5,self.select_action).start()
+        rospy.spin()
+
+if __name__ == "__main__":
+    rospy.init_node('actor')
+    actor = Actor()
+    actor.run()

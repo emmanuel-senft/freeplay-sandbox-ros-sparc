@@ -117,6 +117,7 @@ catkin_install_python(PROGRAMS
     nodes/executor
     nodes/state_analyser
     nodes/action_analyser
+    nodes/actor
     nodes/zones_from_image
     nodes/nao_behaviours
     nodes/sandtray_gaze_viz
