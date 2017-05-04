@@ -40,5 +40,9 @@
     <node pkg="freeplay_sparc" type="executor" name="executor" output="screen">
         <param name="arm_reach" value="$(arg arm_reach)" />
     </node>
+    <node pkg="freeplay_sparc" type="action_analyser" name="action_analyser" output="screen">
+    </node>
+    <node pkg="freeplay_sparc" type="state_analyser" name="state_analyser" output="screen">
+    </node>
 
 </launch>
