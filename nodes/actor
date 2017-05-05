@@ -12,15 +12,32 @@ class Actor(object):
         self._state_sub = rospy.Subscriber("sparc/state", Int32MultiArray, self.on_state)
         self._action_sub = rospy.Subscriber("sparc/dis_action_selected",DiscreteAction, self.on_action)
         self._action_pub = rospy.Publisher("sparc/dis_action_proposed", DiscreteAction, queue_size = 5)
+        self._state = np.array([])
+        self._states = np.empty((0,10,8), int)
+        self._masks = np.empty((0,10,8), bool)
+        self._actions = np.empty((0,10), int)
+        self._actions_mask = np.empty((0,10),bool)
 
     def on_state(self, message):
-        pass 
+        dimension = [message.layout.dim[0].size, message.layout.dim[1].size]
+        self._state = np.zeros(shape=(dimension[0],dimension[1]))
+        for i in range(0, dimension[0]):
+            for j in range(0,dimension[1]):
+                self._state[i,j] = message.data[dimension[1]*i+j]
 
     def on_action(self, message):
+        action = message.data
+        mask = np.zeros(self._state.shape,dtype = bool)
+        for i in range(0, self._state.shape[0]):
+            for j in range(0, self._state.shape[1]):
+                mask[i,j]=message.mask[i*self._state.shape[1]+j]
+        self._states = np.concatenate((self._states,np.array([self._state])),axis = 0)
+        self._masks = np.concatenate((self._masks, np.array([mask])),axis = 0)
+        self._actions = np.concatenate((self._actions, np.array([action])),axis = 0)
+        self._actions_mask = np.concatenate((self._actions_mask, np.array([message.maskAction])),axis = 0)
         pass
 
     def select_action(self):
-        print "select"
         message = DiscreteAction()
         message.header.frame_id = "sandtray"
         message.header.stamp = rospy.Time(0)
