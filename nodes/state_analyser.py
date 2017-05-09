@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import numpy as np
+import numpy.ma as ma
 import random
 import signal
 import sys
@@ -16,7 +17,8 @@ import actionlib
 from geometry_msgs.msg import PoseStamped, Point
 from std_msgs.msg import String, Float32MultiArray, Int32MultiArray, MultiArrayDimension
 from visualization_msgs.msg import MarkerArray, Marker
-from freeplay_sandbox_msgs.msg import ListIntStamped
+import shapely.geometry 
+
 
 MAP_HEIGHT=0.335
 
@@ -44,6 +46,9 @@ class StateAnalyser(object):
         self._stopping = False
 
         self._state=np.zeros(shape=(len(ITEMS),8),dtype = int)
+
+        self._xmax = 0
+        self._xmin = 0
 
         rospy.loginfo("Ready to play!")
         
@@ -187,7 +192,8 @@ class StateAnalyser(object):
                 for point in zone.points:
                     xmax = max(xmax, point.x)
                     ymin = min(ymin, point.y)
-                    
+        self._xmax=xmax
+        self._ymin=ymin
         self._zone_types.add(COLORS[-1])
         self._zones.setdefault(COLORS[-1],[]).append([(xmax,0),(xmax,ymin), (xmax/0.88,ymin),(xmax/0.88,0)])
         print self._zone_types
@@ -202,30 +208,44 @@ class StateAnalyser(object):
     def dist(self, a, b):
         return pow(a[0]-b[0],2)+pow(a[1]-b[1],2)
 
-    def get_point_in_zone(self, zone_type, zone_id, closeto=None):
-        if len(self._zones) == 0 or len(self._zones[zone_type])==0:
-            return None
-        if zone_id == -1:
-            regions = random.sample(self._zones[zone_type],len(self._zones[zone_type]))
-        else:
-            regions = self._zones[zone_type]
-            regions = [regions[zone_id]]
+    def get_point_action(self, masked_action):
+        zone_type = -1
+        zone_id = -1
+        
+        if masked_action[2] is not ma.masked:
+            zone_type = COLORS[masked_action[2]]
+            if masked_action[3] is not ma.masked:
+                zone_id = masked_action[3]
+        closeto = []
+        for i in range(3):
+            if masked_action[4+2*i] is not ma.masked:
+                name= SPATIAL_THING[masked_action[4+2*i]]
+                index = -1
+                if masked_action[5+2*i] is not ma.masked:
+                    index = masked_action[5+2*i]
+                closeto.append((name, index))
 
         candidates = []
-        for poly in regions:
-            x=0;y=0;
-            for p in poly:
-                dx,dy = p
-                x+=dx
-                y+=dy
-            candidates.append((x/len(poly), y/len(poly)))
+        if zone_type == -1:
+            candidates += self.get_points_in_polygon([(0,0),(self._xmax,0),(self._xmax, self._ymin),(0,self._ymin)],200)
+        else:            
+            if len(self._zones) == 0 or len(self._zones[zone_type])==0:
+                return None
+            if zone_id == -1:
+                regions = random.sample(self._zones[zone_type],len(self._zones[zone_type]))
+            else:
+                regions = self._zones[zone_type]
+                regions = [regions[zone_id]]
+
+            for poly in regions:
+                candidates += self.get_points_in_polygon(poly,50)
 
         best_dist = 1000
         best_candidate = None
 
         for c in candidates:
             if closeto:
-                d=dist(c,closeto)
+                d=self.get_distance_pose_spatial_things(c,closeto)
                 if d<best_dist:
                     best_dist =d
                     best_candidate = Point(x=c[0],y=c[1])
@@ -233,6 +253,38 @@ class StateAnalyser(object):
                 return Point(x=c[0],y=c[1])
 
         return best_candidate
+
+    def get_points_in_polygon(self, poly, n):
+        points = []
+        p=shapely.geometry.Polygon(poly)
+        (minx, miny, maxx, maxy) = p.bounds
+
+        while len(points)<n:
+            point = shapely.geometry.Point(random.uniform(minx, maxx), random.uniform(miny, maxy))
+            if p.contains(point):
+                points.append((point.x,point.y))
+        return points
+
+
+    def get_distance_pose_spatial_things(self, pose, spatial_things):
+        distance=0
+        for spatial_thing in spatial_things:
+            if spatial_thing[0] in COLORS:
+                mindist = 1000
+                zone_type = spatial_thing[0]
+                zone_id = spatial_thing[1]
+                if zone_id == -1:
+                    regions = random.sample(self._zones[zone_type],len(self._zones[zone_type]))
+                else:
+                    regions = self._zones[zone_type]
+                    regions = [regions[zone_id]]
+                for poly in regions:
+                    for point in poly:
+                        mindist = min(self.dist(point, pose),mindist)
+                distance+=mindist
+            if spatial_thing[0] in ITEMS:
+                distance += self.dist(pose, self.get_pose(spatial_thing[0]))
+        return distance
 
     def get_state_pose(self, item, stamped_pose):
         pose = self.get_pose(item)
