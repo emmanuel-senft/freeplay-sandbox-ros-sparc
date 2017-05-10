@@ -117,7 +117,7 @@ class StateAnalyser(object):
                     for point in polygon:
                         d.append(self.dist(point,pose))
                     distances.append(min(d))
-        close_indexes =np.argpartition(distances,3)[:3]
+        close_indexes = np.argpartition(distances,3)[:3]
         return spatial_thing[close_indexes[0]]+spatial_thing[close_indexes[1]]+spatial_thing[close_indexes[2]] 
 
     def get_pose(self, item, reference=REFERENCE_FRAME):
@@ -224,7 +224,11 @@ class StateAnalyser(object):
                 if masked_action[5+2*i] is not ma.masked:
                     index = masked_action[5+2*i]
                 closeto.append((name, index))
+        print zone_type
+        print zone_id
+        print closeto
 
+        
         candidates = []
         if zone_type == -1:
             candidates += self.get_points_in_polygon([(0,0),(self._xmax,0),(self._xmax, self._ymin),(0,self._ymin)],200)
