@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 import numpy as np
+import numpy.ma as ma
 import math
 import time, threading
+import operator
 
 import rospy
 from freeplay_sandbox_msgs.msg import DiscreteAction 
@@ -12,18 +14,28 @@ class Actor(object):
         self._state_sub = rospy.Subscriber("sparc/state", Int32MultiArray, self.on_state)
         self._action_sub = rospy.Subscriber("sparc/dis_action_selected",DiscreteAction, self.on_action)
         self._action_pub = rospy.Publisher("sparc/dis_action_proposed", DiscreteAction, queue_size = 5)
-        self._state = np.array([])
-        self._states = np.empty((0,10,8), int)
-        self._masks = np.empty((0,10,8), bool)
-        self._actions = np.empty((0,10), int)
-        self._actions_mask = np.empty((0,10),bool)
+        self._masked_states=[]
+        self._masked_actions=[]
+        self._reaction_timer = threading.Timer(2, self.select_action)
+        self._has_moved = False
+        self._moving_Timer = threading.Timer(10, self.reset_has_moved)
+        self._state = None
 
     def on_state(self, message):
         dimension = [message.layout.dim[0].size, message.layout.dim[1].size]
-        self._state = np.zeros(shape=(dimension[0],dimension[1]))
+        current_state =  np.zeros(shape=(dimension[0],dimension[1]))
+
         for i in range(0, dimension[0]):
             for j in range(0,dimension[1]):
-                self._state[i,j] = message.data[dimension[1]*i+j]
+                current_state[i,j] = message.data[dimension[1]*i+j]
+
+        if self._state is None:
+            self._state = current_state
+
+        if np.any(self._state != current_state):
+            if not self._reaction_timer.is_alive() and not self._moving_Timer.is_alive():
+                self._reaction_timer.start()
+            self._state = current_state
 
     def on_action(self, message):
         action = message.data
@@ -31,32 +43,60 @@ class Actor(object):
         for i in range(0, self._state.shape[0]):
             for j in range(0, self._state.shape[1]):
                 mask[i,j]=message.mask[i*self._state.shape[1]+j]
-        self._states = np.concatenate((self._states,np.array([self._state])),axis = 0)
-        self._masks = np.concatenate((self._masks, np.array([mask])),axis = 0)
-        self._actions = np.concatenate((self._actions, np.array([action])),axis = 0)
-        self._actions_mask = np.concatenate((self._actions_mask, np.array([message.maskAction])),axis = 0)
-        pass
+        masked_state = ma.array(self._state, mask = ~mask, dtype = int)
+        masked_action = ma.array(action, mask = ~np.array(message.maskAction), dtype = int)
+        self._masked_states += [masked_state]
+        self._masked_actions += [masked_action]
+
+
+    #could do something with distance and value: general vs precise
+    def get_distance_state(self, state1, state2):
+        distance = 1-np.mean(state1==state2)
+        if distance is ma.masked:
+            distance = 0.5
+        return distance
 
     def select_action(self):
-        message = DiscreteAction()
-        message.header.frame_id = "sandtray"
-        message.header.stamp = rospy.Time(0)
-        message.data.append(0)
-        message.data.append(0)
-        message.data.append(0)
-        message.data.append(-1)
-        message.data.append(0)
-        message.data.append(0)
-        message.data.append(0)
-        message.data.append(0)
-        message.data.append(0)
-        message.data.append(0)
-        self._action_pub.publish(message)
+        print "selecting action"
+        n = len(self._masked_states)
+        if n != 0:
+            state = self._state
 
-        threading.Timer(5,self.select_action).start()
+            #can be optimised
+            dmin = self.get_distance_state(state, self._masked_states[0])
+            index = 0
+
+            for i in range(n):
+                d= self.get_distance_state(state, self._masked_states[i])
+                print d
+                if d<dmin:
+                    dmin = d
+                    index = i
+                
+            action = self._masked_actions[index]
+            mask = (state == self._masked_states[index].data) & ~self._masked_states[index].mask
+            message = DiscreteAction()
+            message.header.frame_id = "sandtray"
+            message.header.stamp = rospy.Time(0)
+            for i in action.data:
+                message.data.append(int(i))
+            for i in action.mask:
+                message.maskAction.append(bool(not i))
+            for i in mask.flatten():
+                message.mask.append(bool(i))
+
+            self._action_pub.publish(message)
+            self._has_moved = True
+            self._moving_Timer.start()
+
+        self._reaction_timer = threading.Timer(2, self.select_action)
+
+    def reset_has_moved(self):
+        self._has_moved = False
+        self._moving_Timer = threading.Timer(10, self.reset_has_moved)
 
     def run(self):
-        threading.Timer(5,self.select_action).start()
+#        threading.Timer(5,self.select_action).start()
         rospy.spin()
 
 if __name__ == "__main__":
