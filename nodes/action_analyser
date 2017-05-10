@@ -19,6 +19,8 @@ from freeplay_sandbox_msgs.msg import ContinuousAction, DiscreteAction
 
 MAP_HEIGHT=0.335
 
+DEBUG = False
+
 REFERENCE_FRAME="/sandtray"
 
 ITEMS = ["zebra","elephant","ball","lion","giraffe","caravan","crocodile","hippo","boy","girl"]
@@ -40,12 +42,31 @@ class ActionAnalyser(object):
         self._proposed_action_pub = rospy.Publisher("sparc/proposed_action", ContinuousAction, queue_size = 5)
 
         self._state_analyser = StateAnalyser()
+        
+        if DEBUG:
+            Timer(1, self.test).start()
+
+    def test(self):
+        a = DiscreteAction()
+        a.data=np.zeros(10,dtype = int)
+        a.data[2]=-1
+        a.data[3]=-1
+        a.data[4]=SPATIAL_THING.index("giraffe")
+        a.data[6]=SPATIAL_THING.index("hippo")
+        a.maskAction = np.ones(10,dtype = bool)
+        a.maskAction[6]=True
+        a.maskAction[7]=False
+        a.maskAction[2]=False
+        a.maskAction[8]=False
+        a.maskAction[9]=False
+        self.on_action_proposed(a)
 
     def on_action_proposed(self, message):
         print "got action"
         data = message.data
-        print message.data
-        print message.maskAction
+        if DEBUG:
+            print message.data
+            print message.maskAction
         action = message.data[0]
         if action == ACTION_TYPES.index("move"):
             #Add closest
@@ -100,15 +121,17 @@ class ActionAnalyser(object):
         action_mask = np.concatenate(([True, True],  self.get_mask_item_state(goal_state, types, indexes)))
 
         self.publish_action(ACTION_TYPES.index("move"),item_id, goal_state, mask, action_mask)
-        
+        if DEBUG:
+            print mask
+            print action_mask
     def get_mask_item_state(self, state, types, indexes):
         mask = np.zeros(len(state),dtype = bool)
         for i in range(0, len(state)/2):
             for str in types:
-                print SPATIAL_THING[state[2*i]]
-                print "str " + str
+                if DEBUG:
+                    print SPATIAL_THING[state[2*i]]
+                    print "str " + str
                 if SPATIAL_THING[state[2*i]] == str:
-                    print "found"
                     mask[2*i] = True
                     if str in ITEMS:
                         mask[2*i+1] = True
@@ -120,10 +143,13 @@ class ActionAnalyser(object):
     def get_mask(self, strings, types, indexes):
         state = self._state_analyser._state
         mask = np.zeros(state.shape, dtype = bool )
-           
+        if DEBUG:
+            print state
         for i in range(0,state.shape[0]):
             if ITEMS[i] in strings:
                 mask[i] = self.get_mask_item_state(state[i],types, indexes)
+                if DEBUG:
+                    print mask[i]
         return mask
 
 
