@@ -9,6 +9,8 @@ import rospy
 from freeplay_sandbox_msgs.msg import DiscreteAction 
 from std_msgs.msg import Int32MultiArray
 
+DEBUG = False
+
 class Actor(object):
     def __init__(self):
         self._state_sub = rospy.Subscriber("sparc/state", Int32MultiArray, self.on_state)
@@ -44,20 +46,25 @@ class Actor(object):
             for j in range(0, self._state.shape[1]):
                 mask[i,j]=message.mask[i*self._state.shape[1]+j]
         masked_state = ma.array(self._state, mask = ~mask, dtype = int)
+        if DEBUG:
+            print "masked state"
+            print masked_state
         masked_action = ma.array(action, mask = ~np.array(message.maskAction), dtype = int)
         self._masked_states += [masked_state]
         self._masked_actions += [masked_action]
 
-
     #could do something with distance and value: general vs precise
     def get_distance_state(self, state1, state2):
+        if DEBUG:
+            print state1==state2
         distance = 1-np.mean(state1==state2)
         if distance is ma.masked:
             distance = 0.5
         return distance
 
     def select_action(self):
-        print "selecting action"
+        if DEBUG:
+            print "selecting action"
         n = len(self._masked_states)
         if n != 0:
             state = self._state
@@ -67,14 +74,18 @@ class Actor(object):
             index = 0
 
             for i in range(n):
+                if DEBUG:
+                    print self._masked_actions[i]
                 d= self.get_distance_state(state, self._masked_states[i])
-                print d
                 if d<dmin:
                     dmin = d
                     index = i
                 
             action = self._masked_actions[index]
             mask = (state == self._masked_states[index].data) & ~self._masked_states[index].mask
+            if DEBUG:
+                print action
+                print mask
             message = DiscreteAction()
             message.header.frame_id = "sandtray"
             message.header.stamp = rospy.Time(0)
@@ -96,7 +107,6 @@ class Actor(object):
         self._moving_Timer = threading.Timer(10, self.reset_has_moved)
 
     def run(self):
-#        threading.Timer(5,self.select_action).start()
         rospy.spin()
 
 if __name__ == "__main__":
