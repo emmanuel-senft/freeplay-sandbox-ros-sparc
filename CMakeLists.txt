@@ -115,7 +115,7 @@ catkin_install_python(PROGRAMS
     nodes/move_sandbox_items
     nodes/play
     nodes/executor
-    nodes/state_analyser
+    nodes/state_analyser.py
     nodes/action_analyser
     nodes/actor
     nodes/zones_from_image

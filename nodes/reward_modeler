@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+import numpy as np
+import numpy.ma as ma
+import math
+import rospy
+import time, threading
+from std_msgs.msg import Int32MultiArray, Bool
+from freeplay_sandbox_msgs.msg import DiscreteAction, RewardMessage
+
+STATIC_ITEMS = ["rocket","alternate_rocket"] 
+ITEMS = ["zebra","elephant","ball","lion","giraffe","caravan","crocodile","hippo","boy","girl"]
+
+class RewardModel(object):
+    def __init__(self):
+        self._state_sub = rospy.Subscriber("sparc/state", Int32MultiArray, self.on_state)
+        self._reward_sub = rospy.Subscriber("sparc/sup_reward", RewardMessage, self.on_reward)
+        self._reward_pub = rospy.Publisher("sparc/prop_reward", Bool, queue_size = 5)
+        self._states = []
+        self._state = None
+        self._masked_states = []
+        self._rewards = []
+
+    def on_state(self, message):
+        dimension = [message.layout.dim[0].size, message.layout.dim[1].size]
+        current_state =  np.zeros(shape=(dimension[0],dimension[1]))
+        for i in range(0, dimension[0]):
+            for j in range(0,dimension[1]):
+                current_state[i,j] = message.data[dimension[1]*i+j]
+                
+        self._state = current_state
+        if (current_state[-1] == 0):
+            self.check_reward()
+        print self._state
+        self._states.append(np.array(self._state))
+
+    def on_reward(self, message):
+        if len(message.strings) == 0:
+            self._masked_states.append(self._state[:-1])
+            if message.reward:
+                self._rewards.append(1)
+            else:
+                self._rewards.append(-1)
+
+    def check_reward(self):
+        pass
+
+    def run(self):
+        rospy.spin()
+
+if __name__ == "__main__":
+    rospy.init_node('reward_model')
+    reward_model = RewardModel()
+    reward_model.run()
+
