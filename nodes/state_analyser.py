@@ -25,10 +25,12 @@ MAP_HEIGHT=0.335
 REFERENCE_FRAME="/sandtray"
 
 ITEMS = ["zebra","elephant","ball","lion","giraffe","caravan","crocodile","hippo","boy","girl"]
-
+STATIC_ITEMS = ["rocket","alternaterocket"]
 COLORS = ["black","white","purple","blue","green","yellow","red","out"]
 
-SPATIAL_THING = COLORS+ITEMS
+SPATIAL_THING = STATIC_ITEMS
+
+DISTANCE_THRESHOLD = 0.001
 
 class StateAnalyser(object):
     def __init__(self):
@@ -45,39 +47,44 @@ class StateAnalyser(object):
         self._zoneslock = Lock()
         self._stopping = False
 
-        self._state=np.zeros(shape=(len(ITEMS),8),dtype = int)
+        self._state=np.zeros(len(ITEMS)+3,dtype = int)
+        self._states=[]
 
         self._xmax = 0
         self._xmin = 0
+        self._current_touches = 0
+        self._robot_touch = False
 
         rospy.loginfo("Ready to play!")
+        self._timer = Timer(0.5, self.get_state)
+        self._timer.start()
         
         self.get_state()
 
     def get_state(self):
         if self._stopping:
             return
-        Timer(0.5, self.get_state).start()
+        self._timer = Timer(0.5, self.get_state)
+        self._timer.start()
+        
         stateLabel=["items","state"]
-        zone_location_type=[]
-        zone_location_index=[]
         for idx, item in enumerate(ITEMS):
-            zone_type, zone_index = self.zone_item(item)
-            closest = self.get_closest(item,zone_type,zone_index)
-            if closest == (-1,-1):
-                return
-            closest[0] = SPATIAL_THING.index(closest[0])
-            closest[2] = SPATIAL_THING.index(closest[2])
-            closest[4] = SPATIAL_THING.index(closest[4])
-            if zone_type != -1:
-                zone_type = COLORS.index(zone_type)
-            self._state[idx]=[zone_type,zone_index] + closest
+            self._state[idx] = self.get_closest(item)
+            if DEBUG:
+                print item + " " + str(self._state[idx])
+        self._state[-2] = self._robot_touch
+        self._state[-3] = self._current_touches > 0
+
+        if len(self._states) > 0 and (self._state == self._states[-1]).all():
+            self._state[-1] += 1
+        else:
+            self._state[-1] = 0
+        self._states.append(np.array(self._state))
+
         self.publish_state(self._state,stateLabel)
     
     def publish_state(self,state,labels):
         message = Int32MultiArray()
-        #message.header.frame_id = REFERENCE_FRAME
-        #message.header.stamp = rospy.Time(0)
         dim1 = MultiArrayDimension()
         dim2 = MultiArrayDimension()
         dim1.label = labels[0]
@@ -85,40 +92,32 @@ class StateAnalyser(object):
         dim1.stride = state.size
         message.layout.dim.append(dim1)
         dim2.label = labels[1]
-        dim2.size = state.shape[1]
-        dim2.stride = state.shape[1]
+        dim2.size = 1#state.shape[1]
+        dim2.stride = dim2.size
         message.layout.dim.append(dim2)
         for a in state.flat[:]:
             message.data.append(a)
         self._state_pub.publish(message)
         pass
 
-    def get_closest(self, item, zone_in_type, zone_in_index, pose = None):
-        distances=[]
-        spatial_thing=[]
+    def get_closest(self, item, pose =None):
         if pose is None:
             pose = self.get_pose(item)
         if  pose is None:
-            return -1,-1 
-        for other_item in ITEMS:
-            if other_item != item:
-                distances.append(self.dist(self.get_pose(other_item), pose))
-                spatial_thing.append([other_item,0])
+            return -1 
+        distances=[]
+        for spatial_thing in SPATIAL_THING:
+            if spatial_thing == item:
+                distance.append(float('inf'))
+            else:
+                distances.append(self.dist(self.get_pose(spatial_thing), pose))
 
-        vectDist=np.vectorize(self.dist)
+        mini = min(distances)
 
-        for zone_type in enumerate(self._zone_types):
-            if zone_type[1] in self._zones:
-                for idx,polygon in enumerate(self._zones[zone_type[1]]):
-                    if zone_type[1] == zone_in_type and zone_in_index == idx:
-                        continue
-                    spatial_thing.append([zone_type[1], idx])
-                    d=[]
-                    for point in polygon:
-                        d.append(self.dist(point,pose))
-                    distances.append(min(d))
-        close_indexes = np.argpartition(distances,3)[:3]
-        return spatial_thing[close_indexes[0]]+spatial_thing[close_indexes[1]]+spatial_thing[close_indexes[2]] 
+        if mini > DISTANCE_THRESHOLD:
+            return -1
+
+        return np.argpartition(distances,1)[0]
 
     def get_pose(self, item, reference=REFERENCE_FRAME):
         if item not in self._tl.getFrameStrings():
@@ -151,6 +150,7 @@ class StateAnalyser(object):
 
         x,y = point
 
+
         for idx, polygon in enumerate(polygons):
             n = len(polygon)
             inside = False
@@ -176,7 +176,14 @@ class StateAnalyser(object):
         rospy.spin()
 
     def on_event(self, event):
-        pass
+        if event.data == "release":
+            self._current_touches -= 1
+        if  event.data.split("_")[0] == "releasing":
+            self._robot_touch = False
+        if event.data == "touch": 
+            self._current_touches += 1
+        if event.data.split("_")[0] == "touching":
+            self._robot_touch = True
 
     def on_zones(self, zones):
         self._zoneslock.acquire()
@@ -299,9 +306,21 @@ class StateAnalyser(object):
         pose = self._tl.transformPose(REFERENCE_FRAME,stamped_pose)
         pose = pose.pose.position
         pose = pose.x, pose.y
-        zone_type, zone_index = self.isin_zone(pose)
-        closest = self.get_closest(item, zone_type, zone_index, pose = pose)
-        return zone_type, zone_index, closest
+        #zone_type, zone_index = self.isin_zone(pose)
+        closest = self.get_closest(item, pose = pose)
+        #return zone_type, zone_index, closest
+        return closest
+    
+    def get_pose_close_to(self, item):
+        pose = self.get_pose(item)
+        if pose == None:
+            return None
+        x = pose[0] + random.uniform(-DISTANCE_THRESHOLD,DISTANCE_THRESHOLD)/math.sqrt(2)
+        y = pose[1] + random.uniform(-DISTANCE_THRESHOLD,DISTANCE_THRESHOLD)/math.sqrt(2)
+        print x
+        print y
+        pose = x, y
+        return pose
 
 
 if __name__ == "__main__":

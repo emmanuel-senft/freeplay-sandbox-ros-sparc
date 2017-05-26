@@ -26,6 +26,8 @@ REFERENCE_FRAME="/sandtray"
 ITEMS = ["zebra","elephant","ball","lion","giraffe","caravan","crocodile","hippo","boy","girl"]
 ACTION_TYPES = ["move"]
 
+STATIC_ITEMS = ["rocket","alternaterocket"]
+LOCATIONS = STATIC_ITEMS + ["none"]
 COLORS = ["black","white","purple","blue","green","yellow","red","out"]
 
 SPATIAL_THING = COLORS+ITEMS
@@ -98,32 +100,36 @@ class ActionAnalyser(object):
 
     def on_selected_action(self, message):
         item = message.header.frame_id
-        zone_type, zone_index, closest = self._state_analyser.get_state_pose(item, message)
+        closest = self._state_analyser.get_state_pose(item, message)
         item_id = ITEMS.index(item)
 
-        closest[0] = SPATIAL_THING.index(closest[0])
-        closest[2] = SPATIAL_THING.index(closest[2])
-        closest[4] = SPATIAL_THING.index(closest[4])
-        if zone_type != -1:
-            zone_type = SPATIAL_THING.index(zone_type)
-        goal_state = [zone_type, zone_index]+closest
+        #closest[0] = SPATIAL_THING.index(closest[0])
+        #closest[2] = SPATIAL_THING.index(closest[2])
+        #closest[4] = SPATIAL_THING.index(closest[4])
+        #if zone_type != -1:
+        #    zone_type = SPATIAL_THING.index(zone_type)
+        #goal_state = [zone_type, zone_index, closest]
 
         strings = message.strings+[item]
-        types = []
-        indexes= np.zeros(len(strings), dtype = np.int)
-        for str in strings:
-            splitted =  str.split("_")
-            types.append(splitted[0])
-            if len(splitted)>1:
-                indexes[i] = int(splitted[1])
+        #types = []
+        #indexes= np.zeros(len(strings), dtype = np.int)
+        #for str in strings:
+        #    splitted =  str.split("_")
+        #    types.append(splitted[0])
+        #    if len(splitted)>1:
+        #        indexes[i] = int(splitted[1])
 
-        mask = self.get_mask(strings, types, indexes)
-        action_mask = np.concatenate(([True, True],  self.get_mask_item_state(goal_state, types, indexes)))
+        mask = self.get_mask(strings)
+        action_mask = [True, True]
+        action = "moveto_"+LOCATIONS[closest]
+        action = [ACTION_TYPES.index(action), item_id]
 
-        self.publish_action(ACTION_TYPES.index("move"),item_id, goal_state, mask, action_mask)
+        self.publish_action(action, mask)
+
         if DEBUG:
             print mask
             print action_mask
+
     def get_mask_item_state(self, state, types, indexes):
         mask = np.zeros(len(state),dtype = bool)
         for i in range(0, len(state)/2):
@@ -140,16 +146,18 @@ class ActionAnalyser(object):
                             mask[2*i+1] = True
         return mask
         
-    def get_mask(self, strings, types, indexes):
+    def get_mask(self, strings):
         state = self._state_analyser._state
         mask = np.zeros(state.shape, dtype = bool )
         if DEBUG:
             print state
-        for i in range(0,state.shape[0]):
+        for i in range(0,len(ITEMS)):
             if ITEMS[i] in strings:
-                mask[i] = self.get_mask_item_state(state[i],types, indexes)
-                if DEBUG:
-                    print mask[i]
+                mask[i] = True
+            if LOCATIONS[state[i]] in strings:
+                mask[i] = True
+        #if DEBUG:
+            #print mask
         return mask
 
 

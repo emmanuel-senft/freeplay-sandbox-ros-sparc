@@ -16,12 +16,14 @@ class Actor(object):
         self._state_sub = rospy.Subscriber("sparc/state", Int32MultiArray, self.on_state)
         self._action_sub = rospy.Subscriber("sparc/dis_action_selected",DiscreteAction, self.on_action)
         self._action_pub = rospy.Publisher("sparc/dis_action_proposed", DiscreteAction, queue_size = 5)
-        self._masked_states=[]
-        self._masked_actions=[]
         self._reaction_timer = threading.Timer(2, self.select_action)
+        self._actions = []
+        #self._masked_states=[]
+        #self._masked_actions=[]
         self._has_moved = False
         self._moving_Timer = threading.Timer(10, self.reset_has_moved)
         self._state = None
+        self._proposed_action = None
 
     def on_state(self, message):
         dimension = [message.layout.dim[0].size, message.layout.dim[1].size]
@@ -31,15 +33,24 @@ class Actor(object):
             for j in range(0,dimension[1]):
                 current_state[i,j] = message.data[dimension[1]*i+j]
 
-        if self._state is None:
-            self._state = current_state
+    ##    if self._state is None:
+        self._state = current_state
+        if current_state[-1] == 10 and current_state[-2] == 0 and current_state[-3] == False:
+            self.select_action()
 
-        if np.any(self._state != current_state):
-            if not self._reaction_timer.is_alive() and not self._moving_Timer.is_alive():
-                self._reaction_timer.start()
-            self._state = current_state
+#        if np.any(self._state != current_state):
+ #           if not self._reaction_timer.is_alive() and not self._moving_Timer.is_alive():
+  #              self._reaction_timer.start()
+   #         self._state = current_state
+    def on_selected(self, message):
+        self.on_action(message, 1)
 
-    def on_action(self, message):
+    def on_cancelled(self, message):
+        print "cancelling"
+        self.on_action(message,-1)
+
+    def on_action(self, message, reward):
+        print "received action"
         action = message.data
         mask = np.zeros(self._state.shape,dtype = bool)
         for i in range(0, self._state.shape[0]):
@@ -49,15 +60,21 @@ class Actor(object):
         if DEBUG:
             print "masked state"
             print masked_state
-        masked_action = ma.array(action, mask = ~np.array(message.maskAction), dtype = int)
-        self._masked_states += [masked_state]
-        self._masked_actions += [masked_action]
+        for known_action in self._actions:
+            if known_action._action == action:
+                known_action._states.append(masked_state)
+                known_action._rewards.append(reward)
+                break
+        else:
+            new_action = Action(action, masked_state, reward)
+            self._actions.append(new_action)
+        self._proposed_action = None
 
     #could do something with distance and value: general vs precise
-    def get_distance_state(self, state1, state2):
+    def get_similarity_states(self, state1, state2):
         if DEBUG:
             print state1==state2
-        distance = 1-np.mean(state1==state2)
+        distance = np.mean(state1[:-2]==state2[:-2])
         if distance is ma.masked:
             distance = 0.5
         return distance
@@ -108,6 +125,12 @@ class Actor(object):
 
     def run(self):
         rospy.spin()
+
+class Action(object):
+    def __init__(self, act, state, reward):
+        self._action = act
+        self._states = [state]
+        self._rewards = [reward]
 
 if __name__ == "__main__":
     rospy.init_node('actor')
