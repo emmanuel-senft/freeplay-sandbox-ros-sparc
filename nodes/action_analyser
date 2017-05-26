@@ -101,6 +101,7 @@ class ActionAnalyser(object):
             message_out.pose.orientation.y = 0
             message_out.pose.orientation.z = 0
             message_out.pose.orientation.w = 1.
+            message_out.type = "move"
             self._proposed_action_pub.publish(message_out)
 
     def get_target(self, action, mask):
