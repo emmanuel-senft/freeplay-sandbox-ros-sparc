@@ -36,8 +36,8 @@ class ActionAnalyser(object):
         self._event_sub = rospy.Subscriber("events", String, self.on_event)
         self._selected_action_sub = rospy.Subscriber("sparc/selected_action",ContinuousAction , self.on_selected_action)
 
-        self._proposed_action_sub = rospy.Subscriber("sparc/dis_action_proposed",DiscreteAction, self.on_action_proposed)
-        self._selected_action_pub = rospy.Publisher("sparc/dis_action_selected", DiscreteAction, queue_size = 5)
+        self._proposed_action_sub = rospy.Subscriber("sparc/proposed_action_dis",DiscreteAction, self.on_action_proposed)
+        self._selected_action_pub = rospy.Publisher("sparc/selected_action_dis", DiscreteAction, queue_size = 5)
 
         self._proposed_action_pub = rospy.Publisher("sparc/proposed_action", ContinuousAction, queue_size = 5)
 
