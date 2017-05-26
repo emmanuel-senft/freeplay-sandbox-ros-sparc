@@ -265,6 +265,16 @@ class StateAnalyser(object):
 
         return best_candidate
 
+    def get_point_away(self):
+
+        candidate = self.get_points_in_polygon([(0,0),(self._xmax,0),(self._xmax, self._ymin),(0,self._ymin)],1)
+        while self.get_closest(candidate) != -1:
+            candidate = self.get_points_in_polygon([(0,0),(self._xmax,0),(self._xmax, self._ymin),(0,self._ymin)],1)
+        candidate = candidate[0]
+        print candidate
+        return candidate 
+
+
     def get_points_in_polygon(self, poly, n):
         points = []
         p=shapely.geometry.Polygon(poly)

@@ -24,8 +24,7 @@ DEBUG = False
 REFERENCE_FRAME="/sandtray"
 
 ITEMS = ["zebra","elephant","ball","lion","giraffe","caravan","crocodile","hippo","boy","girl"]
-ACTION_TYPES = ["move"]
-
+ACTION_TYPES = ["moveto_rocket","moveto_alternaterocket","moveto_none"]
 STATIC_ITEMS = ["rocket","alternaterocket"]
 LOCATIONS = STATIC_ITEMS + ["none"]
 COLORS = ["black","white","purple","blue","green","yellow","red","out"]
@@ -70,23 +69,28 @@ class ActionAnalyser(object):
             print message.data
             print message.maskAction
         action = message.data[0]
-        if action == ACTION_TYPES.index("move"):
-            #Add closest
-            target = self.get_target(message.data, np.array(message.maskAction))
-            if target == None:
-                print "error"
-                return
+        action_str = ACTION_TYPES[action]
+        action_str = action_str.split("_")
+        if action_str[0] == "moveto":
+            goal = None
+            if action_str[1] in STATIC_ITEMS:
+                goal = self._state_analyser.get_pose_close_to(action_str[1])
+                if goal == None:
+                    print "error"
+                    return
+            else:
+                goal = self._state_analyser.get_point_away()
 
             message_out = ContinuousAction()
 
-            for i in range(1,len(message.data)/2):
-                if message.maskAction[2*i] == True:
-                    message_out.strings.append(SPATIAL_THING[message.data[2*i]]) 
+#            for i in range(1,len(message.data)/2):
+#                if message.maskAction[2*i] == True:
+#                    message_out.strings.append(SPATIAL_THING[message.data[2*i]]) 
 
             message_out.header.frame_id = ITEMS[data[1]]
             message_out.header.stamp = rospy.Time(0)
-            message_out.pose.position.x = target.x
-            message_out.pose.position.y = target.y
+            message_out.pose.position.x = goal[0]
+            message_out.pose.position.y = goal[1]
             message_out.pose.position.z = 0
             message_out.pose.orientation.x = 0
             message_out.pose.orientation.y = 0
@@ -161,18 +165,14 @@ class ActionAnalyser(object):
         return mask
 
 
-    def publish_action(self, action_type, action_object, action_target, mask, action_mask):
+    def publish_action(self, action, mask):
         message = DiscreteAction() 
         message.header.frame_id = REFERENCE_FRAME
         message.header.stamp = rospy.Time(0)
-        message.data.append(action_type)
-        message.data.append(action_object)
-        for target in action_target:
-            message.data.append(target)
-        for point in mask.flatten():
+        for point in action:
+            message.data.append(point)
+        for point in mask:
             message.mask.append(point)
-        for point in action_mask:
-            message.maskAction.append(point)
         self._selected_action_pub.publish(message)
 
     def run(self):
