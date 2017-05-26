@@ -4,6 +4,7 @@ import numpy.ma as ma
 import math
 import time, threading
 import operator
+import random
 
 import rospy
 from freeplay_sandbox_msgs.msg import DiscreteAction 
@@ -15,6 +16,7 @@ class Actor(object):
     def __init__(self):
         self._state_sub = rospy.Subscriber("sparc/state", Int32MultiArray, self.on_state)
         self._action_sub = rospy.Subscriber("sparc/selected_action_dis",DiscreteAction, self.on_selected)
+        self._action_sub = rospy.Subscriber("sparc/cancelled_action_dis",DiscreteAction, self.on_cancelled)
         self._action_pub = rospy.Publisher("sparc/proposed_action_dis", DiscreteAction, queue_size = 5)
         self._actions = []
         #self._masked_states=[]
@@ -80,44 +82,49 @@ class Actor(object):
         return distance
 
     def select_action(self):
-        if DEBUG:
-            print "selecting action"
-        n = len(self._masked_states)
-        if n != 0:
-            state = self._state
+        #if DEBUG:
+        print "selecting action"
+        print self._state
+        if len(self._actions) == 0:
+            return
+        weighted_rewards = np.zeros(len(self._actions))
+        for i, action in enumerate(self._actions):
+            print action._action
+            rewards = np.zeros(len(action._states))
+            similarities = np.zeros(len(action._states))
+            for idx, state in enumerate(action._states):
+                print idx
+                print "state " + str(state)
+                print "reward " + str(action._rewards[idx])
+                print "similarity " + str(self.get_similarity_states(self._state, state))
+                rewards[idx] = action._rewards[idx]
+                similarities[idx] = self.get_similarity_states(self._state, state)
+            #weighted_rewards[i] = np.mean(rewards[similarities==max(similarities)])*max(similarities)
+            if sum(similarities)>0:
+                weighted_rewards[i] = np.dot(rewards,similarities)/sum(similarities)*max(similarities)
+        print "weighted rewards"
+        print weighted_rewards
+        if max(weighted_rewards)<=0:
+            print "no good candidate"
+            return
+        
+        action = self._actions[random.choice(np.where(weighted_rewards==max(weighted_rewards))[0])]._action
 
-            #can be optimised
-            dmin = self.get_distance_state(state, self._masked_states[0])
-            index = 0
+        message = DiscreteAction()
+        message.header.frame_id = "sandtray"
+        message.header.stamp = rospy.Time(0)
+        for i in action:
+            message.data.append(int(i))
+#        for i in action.mask:
+#            message.maskAction.append(bool(not i))
+#        for i in mask.flatten():
+#            message.mask.append(bool(i))
 
-            for i in range(n):
-                if DEBUG:
-                    print self._masked_actions[i]
-                d= self.get_distance_state(state, self._masked_states[i])
-                if d<dmin:
-                    dmin = d
-                    index = i
-                
-            action = self._masked_actions[index]
-            mask = (state == self._masked_states[index].data) & ~self._masked_states[index].mask
-            if DEBUG:
-                print action
-                print mask
-            message = DiscreteAction()
-            message.header.frame_id = "sandtray"
-            message.header.stamp = rospy.Time(0)
-            for i in action.data:
-                message.data.append(int(i))
-            for i in action.mask:
-                message.maskAction.append(bool(not i))
-            for i in mask.flatten():
-                message.mask.append(bool(i))
+        self._action_pub.publish(message)
+#        self._has_moved = True
+#        self._moving_Timer.start()
 
-            self._action_pub.publish(message)
-            self._has_moved = True
-            self._moving_Timer.start()
-
-        self._reaction_timer = threading.Timer(2, self.select_action)
+#        self._reaction_timer = threading.Timer(2, self.select_action)
 
     def reset_has_moved(self):
         self._has_moved = False
