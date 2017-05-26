@@ -36,9 +36,11 @@ class ActionAnalyser(object):
 
         self._event_sub = rospy.Subscriber("events", String, self.on_event)
         self._selected_action_sub = rospy.Subscriber("sparc/selected_action",ContinuousAction , self.on_selected_action)
+        self._cancelled_action_sub = rospy.Subscriber("sparc/cancelled_action",ContinuousAction , self.on_cancelled_action)
 
         self._proposed_action_sub = rospy.Subscriber("sparc/proposed_action_dis",DiscreteAction, self.on_action_proposed)
         self._selected_action_pub = rospy.Publisher("sparc/selected_action_dis", DiscreteAction, queue_size = 5)
+        self._cancelled_action_pub = rospy.Publisher("sparc/cancelled_action_dis", DiscreteAction, queue_size = 5)
 
         self._proposed_action_pub = rospy.Publisher("sparc/proposed_action", ContinuousAction, queue_size = 5)
 
@@ -102,6 +104,18 @@ class ActionAnalyser(object):
          masked_action = ma.array(action, mask = ~mask, dtype = int)
          return self._state_analyser.get_point_action(masked_action)
 
+    def on_cancelled_action(self, message):
+        item = message.header.frame_id
+        closest = self._state_analyser.get_state_pose(item, message)
+        item_id = ITEMS.index(item)
+        strings = message.strings+[item]
+        mask = self.get_mask(strings)
+        action_mask = [True, True]
+        action = "moveto_"+LOCATIONS[closest]
+        action = [ACTION_TYPES.index(action), item_id]
+
+        self.cancel_action(action, mask)
+
     def on_selected_action(self, message):
         item = message.header.frame_id
         closest = self._state_analyser.get_state_pose(item, message)
@@ -163,6 +177,16 @@ class ActionAnalyser(object):
         #if DEBUG:
             #print mask
         return mask
+
+    def cancel_action(self, action, mask):
+        message = DiscreteAction() 
+        message.header.frame_id = REFERENCE_FRAME
+        message.header.stamp = rospy.Time(0)
+        for point in action:
+            message.data.append(point)
+        for point in mask:
+            message.mask.append(point)
+        self._cancelled_action_pub.publish(message)
 
 
     def publish_action(self, action, mask):
