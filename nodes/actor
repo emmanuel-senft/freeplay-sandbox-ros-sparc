@@ -14,9 +14,9 @@ DEBUG = False
 class Actor(object):
     def __init__(self):
         self._state_sub = rospy.Subscriber("sparc/state", Int32MultiArray, self.on_state)
-        self._action_sub = rospy.Subscriber("sparc/dis_action_selected",DiscreteAction, self.on_action)
-        self._action_pub = rospy.Publisher("sparc/dis_action_proposed", DiscreteAction, queue_size = 5)
         self._reaction_timer = threading.Timer(2, self.select_action)
+        self._action_sub = rospy.Subscriber("sparc/selected_action_dis",DiscreteAction, self.on_selected)
+        self._action_pub = rospy.Publisher("sparc/proposed_action_dis", DiscreteAction, queue_size = 5)
         self._actions = []
         #self._masked_states=[]
         #self._masked_actions=[]
