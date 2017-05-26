@@ -209,6 +209,7 @@ class ActionAnalyser(object):
         self._stopping = True
         sys.exit(0)
         self._state_analyser._stopping = True
+        self._state_analyser._timer.cancel()
 
 
 if __name__ == "__main__":
