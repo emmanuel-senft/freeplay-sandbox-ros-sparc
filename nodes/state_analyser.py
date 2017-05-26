@@ -37,7 +37,7 @@ class StateAnalyser(object):
         self._tl = tf.TransformListener()
         rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
 
-        self._event_sub = rospy.Subscriber("events", String, self.on_event)
+        self._event_sub = rospy.Subscriber("sandtray/interaction_events", String, self.on_event)
         self._zones_sub = rospy.Subscriber("zones", MarkerArray, self.on_zones)
 
         self._state_pub = rospy.Publisher("sparc/state", Int32MultiArray, queue_size = 5)
