@@ -309,6 +309,18 @@ class StateAnalyser(object):
                 distance += self.dist(pose, self.get_pose(spatial_thing[0]))
         return distance
 
+    def get_relative_pose(self, item, goal):
+        pose = self.get_pose(item)
+        if pose is None:
+            return None
+        goal_pose = PoseStamped()
+        goal_pose.header.frame_id = REFERENCE_FRAME
+        goal_pose.pose.position.x = goal[0]
+        goal_pose.pose.position.y = goal[1]
+        return self._tl.transformPose(item, goal_pose)
+
+        
+ 
     def get_state_pose(self, item, stamped_pose):
         pose = self.get_pose(item)
         if pose is None:

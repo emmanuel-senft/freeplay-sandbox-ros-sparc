@@ -82,6 +82,9 @@ class ActionAnalyser(object):
                     return
             else:
                 goal = self._state_analyser.get_point_away()
+            
+            goal = self._state_analyser.get_relative_pose(ITEMS[data[1]],goal)
+            goal = goal.pose.position
 
             message_out = ContinuousAction()
 
@@ -91,8 +94,8 @@ class ActionAnalyser(object):
 
             message_out.header.frame_id = ITEMS[data[1]]
             message_out.header.stamp = rospy.Time(0)
-            message_out.pose.position.x = goal[0]
-            message_out.pose.position.y = goal[1]
+            message_out.pose.position.x = goal.x
+            message_out.pose.position.y = goal.y
             message_out.pose.position.z = 0
             message_out.pose.orientation.x = 0
             message_out.pose.orientation.y = 0
