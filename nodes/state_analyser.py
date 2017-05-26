@@ -19,6 +19,7 @@ from std_msgs.msg import String, Float32MultiArray, Int32MultiArray, MultiArrayD
 from visualization_msgs.msg import MarkerArray, Marker
 import shapely.geometry 
 
+DEBUG = False
 
 MAP_HEIGHT=0.335
 
@@ -231,9 +232,10 @@ class StateAnalyser(object):
                 if masked_action[5+2*i] is not ma.masked:
                     index = masked_action[5+2*i]
                 closeto.append((name, index))
-        print zone_type
-        print zone_id
-        print closeto
+        if DEBUG:
+            print zone_type
+            print zone_id
+            print closeto
 
         
         candidates = []
