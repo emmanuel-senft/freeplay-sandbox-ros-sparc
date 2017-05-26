@@ -23,7 +23,7 @@ class ItemMover(object):
         self._tl = tf.TransformListener()
         rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
 
-        self._goal_sub = rospy.Subscriber("sparc/selected_action", freeplay_sandbox_msgs.msg.Action, self.on_goal_received)
+        self._goal_sub = rospy.Subscriber("sparc/selected_action", freeplay_sandbox_msgs.msg.ContinuousAction, self.on_goal_received)
         self._release_robot_sub = rospy.Subscriber("sandtray/interaction_events", String, self.on_event)
 
         self._motion = actionlib.SimpleActionClient('move_sandbox_items', freeplay_sandbox_msgs.msg.PlaygroundNavigationAction)
@@ -37,30 +37,31 @@ class ItemMover(object):
         rospy.spin()
 
     def on_goal_received(self,movementPose):
-        item = movementPose.header.frame_id
+        if movementPose.type == "move":
+            item = movementPose.header.frame_id
 
-        if self._moving_item is not None:
-            self.event_release.clear()
-            self._motion.cancel_goal()
-            if self._moving_item != item:
-                self.event_release.wait()
+            if self._moving_item is not None:
+                self.event_release.clear()
+                self._motion.cancel_goal()
+                if self._moving_item != item:
+                    self.event_release.wait()
 
-        pose = self.get_pose(item)
-        if pose is None: # frame not published yet!
-            return
-        pose = pose[0], pose[1]
-        # animal out of reach
-        if not self.reachable(pose):
-            return
+            pose = self.get_pose(item)
+            if pose is None: # frame not published yet!
+                return
+            pose = pose[0], pose[1]
+            # animal out of reach
+            if not self.reachable(pose):
+                return
 
-        pose = self._tl.transformPose("sandtray", movementPose)
-        pose =  pose.pose.position
-        if not self.reachable(pose):
-            return   
-        self._moving_item = item
-        print "sending " + item + " to " + str(pose.x) + " " + str(pose.y)
-        goal = freeplay_sandbox_msgs.msg.PlaygroundNavigationGoal(item=movementPose.header.frame_id,goal=pose)
-        self._motion.send_goal(goal)
+            pose = self._tl.transformPose("sandtray", movementPose)
+            pose =  pose.pose.position
+            if not self.reachable(pose):
+                return   
+            self._moving_item = item
+            print "sending " + item + " to " + str(pose.x) + " " + str(pose.y)
+            goal = freeplay_sandbox_msgs.msg.PlaygroundNavigationGoal(item=movementPose.header.frame_id,goal=pose)
+            self._motion.send_goal(goal)
 
     def on_event(self,msg):
         if msg.data.startswith("releasing_"):
