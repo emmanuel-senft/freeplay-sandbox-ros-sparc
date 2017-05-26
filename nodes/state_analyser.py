@@ -101,7 +101,7 @@ class StateAnalyser(object):
         self._state_pub.publish(message)
         pass
 
-    def get_closest(self, item, pose =None):
+    def get_closest(self, item, pose =None, threshold = DISTANCE_THRESHOLD):
         if pose is None:
             pose = self.get_pose(item)
         if  pose is None:
@@ -115,7 +115,7 @@ class StateAnalyser(object):
 
         mini = min(distances)
 
-        if mini > DISTANCE_THRESHOLD:
+        if mini > threshold:
             return -1
 
         return np.argpartition(distances,1)[0]
@@ -270,7 +270,7 @@ class StateAnalyser(object):
     def get_point_away(self):
 
         candidate = self.get_points_in_polygon([(0,0),(self._xmax,0),(self._xmax, self._ymin),(0,self._ymin)],1)
-        while self.get_closest(candidate) != -1:
+        while self.get_closest(candidate, threshold = 10 * DISTANCE_THRESHOLD ) != -1:
             candidate = self.get_points_in_polygon([(0,0),(self._xmax,0),(self._xmax, self._ymin),(0,self._ymin)],1)
         candidate = candidate[0]
         print candidate
@@ -339,10 +339,10 @@ class StateAnalyser(object):
         pose = self.get_pose(item)
         if pose == None:
             return None
-        x = pose[0] + random.uniform(-DISTANCE_THRESHOLD,DISTANCE_THRESHOLD)/math.sqrt(2)
-        y = pose[1] + random.uniform(-DISTANCE_THRESHOLD,DISTANCE_THRESHOLD)/math.sqrt(2)
         print x
         print y
+        x = pose[0] + random.uniform(-DISTANCE_THRESHOLD,DISTANCE_THRESHOLD)/2
+        y = pose[1] + random.uniform(-DISTANCE_THRESHOLD,DISTANCE_THRESHOLD)/2
         pose = x, y
         return pose
 
