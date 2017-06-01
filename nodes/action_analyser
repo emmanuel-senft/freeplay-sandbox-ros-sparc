@@ -24,10 +24,10 @@ DEBUG = False
 REFERENCE_FRAME="/sandtray"
 
 ITEMS = ["zebra","elephant","ball","lion","giraffe","caravan","crocodile","hippo","boy","girl"]
-ACTION_TYPES = ["moveto_rocket","moveto_alternaterocket","moveto_none"]
+ACTION_TYPES = ["moveto_rocket","moveto_alternaterocket","moveto_stash","moveto_none"]
 STATIC_ITEMS = ["rocket","alternaterocket"]
-LOCATIONS = STATIC_ITEMS + ["none"]
-COLORS = ["black","white","purple","blue","green","yellow","red","out"]
+LOCATIONS = STATIC_ITEMS + ["stash", "none"]
+COLORS = ["black","white","purple","blue","green","yellow","red","stash"]
 
 SPATIAL_THING = COLORS+ITEMS
 
@@ -80,8 +80,10 @@ class ActionAnalyser(object):
                 if goal == None:
                     print "error"
                     return
-            else:
+            if action_str[1] == "none":
                 goal = self._state_analyser.get_point_away()
+            if action_str[1] == "stash":
+                goal = self._state_analyser.get_point_stash()
             
             goal = self._state_analyser.get_relative_pose(ITEMS[data[1]],goal)
             goal = goal.pose.position

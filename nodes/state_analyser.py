@@ -27,7 +27,7 @@ REFERENCE_FRAME="/sandtray"
 
 ITEMS = ["zebra","elephant","ball","lion","giraffe","caravan","crocodile","hippo","boy","girl"]
 STATIC_ITEMS = ["rocket","alternaterocket"]
-COLORS = ["black","white","purple","blue","green","yellow","red","out"]
+COLORS = ["black","white","purple","blue","green","yellow","red","stash"]
 
 SPATIAL_THING = STATIC_ITEMS
 
@@ -106,6 +106,9 @@ class StateAnalyser(object):
             pose = self.get_pose(item)
         if  pose is None:
             return -1 
+        pose = pose[0],pose[1]
+        if "stash" in self._zones.keys() and self.isin(pose, self._zones["stash"]):
+            return -2
         distances=[]
         for spatial_thing in SPATIAL_THING:
             if spatial_thing == item:
@@ -276,6 +279,8 @@ class StateAnalyser(object):
         print candidate
         return candidate 
 
+    def get_point_stash(self):
+        return self.get_points_in_polygon(self._zones["stash"][0],1)[0]
 
     def get_points_in_polygon(self, poly, n):
         points = []
