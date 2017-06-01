@@ -90,9 +90,9 @@ class ActionAnalyser(object):
 
             message_out = ContinuousAction()
 
-#            for i in range(1,len(message.data)/2):
-#                if message.maskAction[2*i] == True:
-#                    message_out.strings.append(SPATIAL_THING[message.data[2*i]]) 
+            for idx, i in enumerate(message.mask):
+                if i == True:
+                    message_out.strings.append(ITEMS[idx]) 
 
             message_out.header.frame_id = ITEMS[data[1]]
             message_out.header.stamp = rospy.Time(0)

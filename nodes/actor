@@ -108,17 +108,23 @@ class Actor(object):
             print "no good candidate"
             return
         
-        action = self._actions[random.choice(np.where(weighted_rewards==max(weighted_rewards))[0])]._action
+        
+        proposed_action = self._actions[random.choice(np.where(weighted_rewards==max(weighted_rewards))[0])]
+        interest = np.zeros(action._states[0].shape)
+        for idx, state in enumerate(proposed_action._states):
+            interest += proposed_action._rewards[idx] * np.logical_and((state == self._state).data, ~state.mask)
+
+        mask = interest > 0
 
         message = DiscreteAction()
         message.header.frame_id = "sandtray"
         message.header.stamp = rospy.Time(0)
-        for i in action:
+        for i in proposed_action._action:
             message.data.append(int(i))
 #        for i in action.mask:
 #            message.maskAction.append(bool(not i))
-#        for i in mask.flatten():
-#            message.mask.append(bool(i))
+        for i in mask:
+            message.mask.append(bool(i))
 
         self._action_pub.publish(message)
 #        self._has_moved = True
