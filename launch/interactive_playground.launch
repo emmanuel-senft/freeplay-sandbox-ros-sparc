@@ -9,7 +9,7 @@
 
     <!-- creates an action server to move sandbox objects to specific positions, 
          using the path planner -->
-    <node pkg="freeplay_sandbox" type="move_sandbox_items" name="move_sandbox_items" required="true" />
+    <node pkg="freeplay_sparc" type="move_sandbox_items" name="move_sandbox_items" required="true" />
 
     <!-- process the sandbox background image to extract possible zones using
          colour-based segmentation -->
