@@ -64,7 +64,7 @@ class ItemMover(object):
             self._motion.send_goal(goal)
 
     def on_event(self,msg):
-        if msg.data.startswith("releasing_"):
+        if msg.data.startswith("robotreleasing_"):
             self._moving_item = None
             self.event_release.set()
 
