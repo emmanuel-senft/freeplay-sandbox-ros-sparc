@@ -1,48 +1,9 @@
 <launch>
-
-    <arg name="with_robot"          default="false" doc="Run with a physical Nao" />
-    <arg name="with_marker_localisation"          default="$(arg with_robot)" doc="Enable monitoring for fiducial marker to localise the robot" />
-    <arg name="nao_ip"              default="$(optenv NAO_IP 127.0.0.1)" doc="If using a robot, Nao's IP" />
-    <arg name="nao_port"            default="$(optenv NAO_PORT 9559)" doc="If using a robot, Nao's port" />
-
-    <arg name="arm_reach"           default="0.4" doc="Robot's arm span (in m), that impact which game item are reachable for the robot" />
-
-    <arg name="roscore_ip"          default="127.0.0.1" />
-    <arg name="network_interface"   default="wlp2s0" doc="Network interface used to communicate with the robot" />
-
-    <group if="$(arg with_robot)">
-        <!-- naoqi driver -->
-        <include file="$(find naoqi_driver)/launch/naoqi_driver.launch" >
-            <arg name="nao_ip"            value="$(arg nao_ip)" />
-            <arg name="nao_port"          value="$(arg nao_port)" />
-            <arg name="roscore_ip"        value="$(arg roscore_ip)" />
-            <arg name="network_interface" value="$(arg network_interface)" />
-        </include>
-
-
-        <node pkg="freeplay_sparc" type="nao_behaviours" name="nao_behaviours" output="screen">
-            <param name="nao_ip"            value="$(arg nao_ip)" />
-        </node>
-    </group>
-
-    <!-- Sets the image source. -->
-    <arg name="image" if="$(arg with_robot)" default="/naoqi_driver_node/camera/front/image_raw" />
-
-    <group if="$(arg with_marker_localisation)">
-        <node pkg="freeplay_sparc" type="sandtray_localisation" name="sandtray_localisation" output="screen">
-            <param name="broadcast_arm_reach" value="true" />
-            <param name="arm_reach" value="$(arg arm_reach)" />
-            <remap from="/image" to="$(arg image)" />
-        </node>
-    </group>
-
-
-    <node pkg="freeplay_sparc" type="executor" name="executor" output="screen">
-        <param name="arm_reach" value="$(arg arm_reach)" />
+    <node pkg="freeplay_sparc" type="woz_play" name="woz_play" output="screen">
     </node>
-    <node pkg="freeplay_sparc" type="action_analyser" name="action_analyser" output="screen">
+<!--    <node pkg="freeplay_sparc" type="action_analyser" name="action_analyser" output="screen">
     </node>
     <node pkg="freeplay_sparc" type="state_analyser" name="state_analyser" output="screen">
-    </node>
+    </node> -->
 
 </launch>
