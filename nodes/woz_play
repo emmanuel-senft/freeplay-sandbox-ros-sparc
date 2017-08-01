@@ -23,7 +23,7 @@ class ItemMover(object):
         self._tl = tf.TransformListener()
         rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
 
-        self._goal_sub = rospy.Subscriber("sparc/selected_action", freeplay_sandbox_msgs.msg.ContinuousAction, self.on_goal_received)
+        self._action_sub = rospy.Subscriber("sparc/selected_action", freeplay_sandbox_msgs.msg.ContinuousAction, self.on_action_received)
         self._release_robot_sub = rospy.Subscriber("sandtray/interaction_events", String, self.on_event)
 
         self._motion = actionlib.SimpleActionClient('move_sandbox_items', freeplay_sandbox_msgs.msg.PlaygroundNavigationAction)
@@ -36,9 +36,9 @@ class ItemMover(object):
     def run(self):
         rospy.spin()
 
-    def on_goal_received(self,movementPose):
-        if movementPose.type == "move":
-            item = movementPose.header.frame_id
+    def on_action_received(self,action):
+        if action.type == "move":
+            item = action.header.frame_id
 
             if self._moving_item is not None:
                 self.event_release.clear()
@@ -51,11 +51,11 @@ class ItemMover(object):
                 return
             pose = pose[0], pose[1]
 
-            pose = self._tl.transformPose("sandtray", movementPose)
+            pose = self._tl.transformPose("sandtray", action)
             pose =  pose.pose.position
             self._moving_item = item
             print "sending " + item + " to " + str(pose.x) + " " + str(pose.y)
-            goal = freeplay_sandbox_msgs.msg.PlaygroundNavigationGoal(item=movementPose.header.frame_id,goal=pose)
+            goal = freeplay_sandbox_msgs.msg.PlaygroundNavigationGoal(item=action.header.frame_id,goal=pose)
             self._motion.send_goal(goal)
 
     def on_event(self,msg):
