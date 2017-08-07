@@ -22,19 +22,17 @@ MAP_HEIGHT=0.335
 DEBUG = False
 
 REFERENCE_FRAME="/sandtray"
+ACTION_ATTENTION = "att_"
+ACTION_MOVE_TO = "mvt"
+ACTION_MOVE_CLOSE = "mvc"
+ACTION_MOVE_AWAY = "mva"
 
-ITEMS = ["zebra","elephant","ball","lion","giraffe","caravan","crocodile","hippo","boy","girl"]
-ACTION_TYPES = ["moveto_rocket","moveto_alternaterocket","moveto_stash","moveto_none"]
-STATIC_ITEMS = ["rocket","alternaterocket"]
-LOCATIONS = STATIC_ITEMS + ["stash", "none"]
-COLORS = ["black","white","purple","blue","green","yellow","red","stash"]
-
-SPATIAL_THING = COLORS+ITEMS
+THRESHOLD_MOVE_TO = 0.001
 
 class ActionAnalyser(object):
     def __init__(self):
 
-        self._event_sub = rospy.Subscriber("events", String, self.on_event)
+        self._event_sub = rospy.Subscriber("sandtray/interaction_events", String, self.on_event)
         self._selected_action_sub = rospy.Subscriber("sparc/selected_action",ContinuousAction , self.on_selected_action)
         self._cancelled_action_sub = rospy.Subscriber("sparc/cancelled_action",ContinuousAction , self.on_cancelled_action)
 
@@ -46,6 +44,8 @@ class ActionAnalyser(object):
 
         self._state_analyser = StateAnalyser()
         
+        self._actions = []
+
         if DEBUG:
             Timer(1, self.test).start()
 
@@ -66,35 +66,54 @@ class ActionAnalyser(object):
 
     def on_action_proposed(self, message):
         print "got action"
-        data = message.data
+        if len(self._actions) == 0:
+            if not self.init_actions():
+                return 
+        
         if DEBUG:
             print message.data
             print message.maskAction
-        action = message.data[0]
-        action_str = ACTION_TYPES[action]
+        state_mask = message.state_mask
+        action_id = message.action_id
+        action_str = self._actions[action_id]
         action_str = action_str.split("_")
-        if action_str[0] == "moveto":
+        print action_str
+        if action_str[0].startswith("mv"):
             goal = None
-            if action_str[1] in STATIC_ITEMS:
-                goal = self._state_analyser.get_pose_close_to(action_str[1])
+            if action_str[1] in self._state_analyser._characters and (action_str[2] in self._state_analyser._characters or action_str[2] in self._state_analyser._targets):
+                if action_str[0] == ACTION_MOVE_TO:
+                    goal = self._state_analyser.get_pose_around(action_str[2])
+                if action_str[0] == ACTION_MOVE_CLOSE:
+                    goal = self._state_analyser.get_pose_close_to(action_str[1], action_str[2])
+                if action_str[0] == ACTION_MOVE_AWAY:
+                    goal = self._state_analyser.get_point_away(action_str[1], action_str[2])
                 if goal == None:
                     print "error"
                     return
-            if action_str[1] == "none":
-                goal = self._state_analyser.get_point_away()
-            if action_str[1] == "stash":
-                goal = self._state_analyser.get_point_stash()
+            else:
+                return
             
-            goal = self._state_analyser.get_relative_pose(ITEMS[data[1]],goal)
+            print "origin "
+            print self._state_analyser.get_pose(action_str[1])
+            print "destination "
+            print goal
+            goal = self._state_analyser.get_relative_pose(action_str[1],goal)
             goal = goal.pose.position
+            print "delta " 
+            print goal
 
             message_out = ContinuousAction()
 
-            for idx, i in enumerate(message.mask):
-                if i == True:
-                    message_out.strings.append(ITEMS[idx]) 
+            #Find formula
+            print len(self._state_analyser._state_label)
+            print len(state_mask)
+            print [self._state_analyser._state_label[i] for i,v in enumerate(state_mask) if v]
+            for str in [self._state_analyser._state_label[i] for i,v in enumerate(state_mask) if v]:
+                for i,s in enumerate(str.split("_")):
+                    if i>0 and s not in message_out.strings:
+                        message_out.strings.append(s) 
 
-            message_out.header.frame_id = ITEMS[data[1]]
+            message_out.header.frame_id = action_str[1]
             message_out.header.stamp = rospy.Time(0)
             message_out.pose.position.x = goal.x
             message_out.pose.position.y = goal.y
@@ -123,92 +142,114 @@ class ActionAnalyser(object):
         self.cancel_action(action, mask)
 
     def on_selected_action(self, message):
+        print "action selected"
+        print len(self._actions)
+        if len(self._actions) == 0:
+            if not self.init_actions():
+                return 
+        print len(self._actions)
         item = message.header.frame_id
-        closest = self._state_analyser.get_state_pose(item, message)
-        item_id = ITEMS.index(item)
+        mask = self.get_mask(message.strings)
+        #print mask
+        #print len(mask)
+        #print len(self._state_analyser._state)
+        #print len(self._state_analyser._state_label)
+        #print [self._state_analyser._state_label[i] for i in range(len(mask)) if mask[i]]
+        trigger_mask = self.get_trigger_mask(message.strings)
+        #print self._state_analyser._trigger_state_label
+        #print [self._state_analyser._trigger_state_label[i] for i,v in enumerate(trigger_mask) if v]
+        action = 0 
+        if message.type == "move":
+            action = self.get_action_move(item, message, message.strings)
+        #print action
+        action = self._actions.index(action)
+        #print action
 
-        #closest[0] = SPATIAL_THING.index(closest[0])
-        #closest[2] = SPATIAL_THING.index(closest[2])
-        #closest[4] = SPATIAL_THING.index(closest[4])
-        #if zone_type != -1:
-        #    zone_type = SPATIAL_THING.index(zone_type)
-        #goal_state = [zone_type, zone_index, closest]
-
-        strings = message.strings+[item]
-        #types = []
-        #indexes= np.zeros(len(strings), dtype = np.int)
-        #for str in strings:
-        #    splitted =  str.split("_")
-        #    types.append(splitted[0])
-        #    if len(splitted)>1:
-        #        indexes[i] = int(splitted[1])
-
-        mask = self.get_mask(strings)
-        action_mask = [True, True]
-        action = "moveto_"+LOCATIONS[closest]
-        action = [ACTION_TYPES.index(action), item_id]
-
-        self.publish_action(action, mask)
+        self.publish_action(action, mask, trigger_mask)
 
         if DEBUG:
             print mask
             print action_mask
 
-    def get_mask_item_state(self, state, types, indexes):
-        mask = np.zeros(len(state),dtype = bool)
-        for i in range(0, len(state)/2):
-            for str in types:
-                if DEBUG:
-                    print SPATIAL_THING[state[2*i]]
-                    print "str " + str
-                if SPATIAL_THING[state[2*i]] == str:
-                    mask[2*i] = True
-                    if str in ITEMS:
-                        mask[2*i+1] = True
-                    else:
-                        if state[2*i+1] == indexex[j]:
-                            mask[2*i+1] = True
-        return mask
-        
+    def init_actions(self):
+        if not self._state_analyser._initialised:
+            return False
+        for o in self._state_analyser._characters+self._state_analyser._targets:
+            self._actions.append(ACTION_ATTENTION + o)
+        for c in self._state_analyser._characters:
+            for o in self._state_analyser._characters + self._state_analyser._targets:
+                self._actions.append(ACTION_MOVE_TO+"_"+c+"_"+o)
+            for o in self._state_analyser._characters + self._state_analyser._targets:
+                self._actions.append(ACTION_MOVE_CLOSE+"_"+c+"_"+o)
+            for o in self._state_analyser._characters + self._state_analyser._targets:
+                self._actions.append(ACTION_MOVE_AWAY+"_"+c+"_"+o)
+        else:
+            return True
+
+    def get_action_move(self, item, pose, strings):
+        goal = self._state_analyser.get_absolute_pose(pose)
+        if len(strings)<2:
+            strings = self._state_analyser._characters + self._state_analyser._targets
+
+        strings.remove(item)
+        start_dist = [self._state_analyser.get_distance_objects(s, item) for s in strings]
+        end_dist = [self._state_analyser.get_distance_item_pose(s, goal) for s in strings]
+        if min(end_dist)<THRESHOLD_MOVE_TO:
+            return ACTION_MOVE_TO+"_"+item+"_"+strings[np.argmin(end_dist)]
+        index = np.argmin(end_dist)
+        if end_dist[index]>start_dist[index]:
+            return ACTION_MOVE_AWAY+"_"+item+"_"+strings[index]
+        else:
+            return ACTION_MOVE_CLOSE+"_"+item+"_"+strings[index]
+
     def get_mask(self, strings):
-        state = self._state_analyser._state
-        mask = np.zeros(state.shape, dtype = bool )
-        if DEBUG:
-            print state
-        for i in range(0,len(ITEMS)):
-            if ITEMS[i] in strings:
-                mask[i] = True
-            if LOCATIONS[state[i]] in strings:
-                mask[i] = True
+        mask = np.full(self._state_analyser._state.shape,True, dtype=bool)
+#        mask = [ v.startswith("d") for v in self._state_analyser._state_label]
+#        for s in strings:
+#            mask = [v.startswith("d") and (s in v.split("_") and mask[i]) or v.startswith("l") and (s in v.split("_") or mask[i]) for i,v in enumerate(self._state_analyser._state_label)]
+        for idx,s in enumerate(self._state_analyser._state_label):
+            l = s.split("_")
+            mask[idx]=l[1] in strings
+            if len(l)>2:
+                mask[idx] = mask[idx] and l[2] in strings
         #if DEBUG:
             #print mask
+        return mask
+
+    def get_trigger_mask(self, strings):
+        mask = np.full(self._state_analyser._trigger_state.shape,False, dtype=bool)
+        for i,c in enumerate(self._state_analyser._characters):
+            if c in strings:
+                mask[i] = True
+        mask[-3] = True
+        mask[-2] = True
+        mask[-1] = True
         return mask
 
     def cancel_action(self, action, mask):
         message = DiscreteAction() 
         message.header.frame_id = REFERENCE_FRAME
         message.header.stamp = rospy.Time(0)
-        for point in action:
-            message.data.append(point)
-        for point in mask:
-            message.mask.append(point)
+        message.action = action
+        message.state_mask = mask
         self._cancelled_action_pub.publish(message)
 
 
-    def publish_action(self, action, mask):
+    def publish_action(self, action, mask, trigger_mask):
         message = DiscreteAction() 
         message.header.frame_id = REFERENCE_FRAME
         message.header.stamp = rospy.Time(0)
-        for point in action:
-            message.data.append(point)
-        for point in mask:
-            message.mask.append(point)
+        message.action_id = action
+        message.state_mask = mask
+        message.trigger_mask = trigger_mask
         self._selected_action_pub.publish(message)
 
     def run(self):
         rospy.spin()
 
     def on_event(self, event):
+#        arguments = event.data.split("_")
+#        if event.m
         pass
 
     def signal_handler(self, signal, frame):

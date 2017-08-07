@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 import numpy.ma as ma
+from scipy import ndimage
 import random
 import signal
 import sys
@@ -16,6 +17,8 @@ import actionlib
 
 from geometry_msgs.msg import PoseStamped, Point
 from std_msgs.msg import String, Float32MultiArray, Int32MultiArray, MultiArrayDimension
+from nav_msgs.msg import OccupancyGrid
+from freeplay_sandbox_msgs.msg import ListFloatStamped
 from visualization_msgs.msg import MarkerArray, Marker
 import shapely.geometry 
 
@@ -25,13 +28,11 @@ MAP_HEIGHT=0.335
 
 REFERENCE_FRAME="/sandtray"
 
-ITEMS = ["zebra","elephant","ball","lion","giraffe","caravan","crocodile","hippo","boy","girl"]
-STATIC_ITEMS = ["rocket","alternaterocket"]
-COLORS = ["black","white","purple","blue","green","yellow","red","stash"]
-
-SPATIAL_THING = STATIC_ITEMS
-
 DISTANCE_THRESHOLD = 0.001
+DIAGONAL = math.sqrt(0.6*0.6+.35*.35)
+PHYSICAL_MAP_WIDTH = 0.6
+PHYSICAL_MAP_HEIGHT = 0.335
+RESOLUTION = 0.005 #m per cell
 
 class StateAnalyser(object):
     def __init__(self):
@@ -39,26 +40,34 @@ class StateAnalyser(object):
         rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
 
         self._event_sub = rospy.Subscriber("sandtray/interaction_events", String, self.on_event)
-        self._zones_sub = rospy.Subscriber("zones", MarkerArray, self.on_zones)
+        self._life_sub = rospy.Subscriber("sparc/life", ListFloatStamped, self.on_life)
+        self._map_sub = rospy.Subscriber("map", OccupancyGrid, self.on_map)
 
-        self._state_pub = rospy.Publisher("sparc/state", Int32MultiArray, queue_size = 5)
+        self._state_pub = rospy.Publisher("sparc/state", ListFloatStamped, queue_size = 5)
+        self._trigger_state_pub = rospy.Publisher("sparc/trigger_state", ListFloatStamped, queue_size = 5)
+        self._event_pub = rospy.Publisher("sandtray/interaction_events", String, queue_size = 5)
 
-        self._zones={}
-        self._zone_types = set()
-        self._zoneslock = Lock()
         self._stopping = False
 
-        self._state=np.zeros(len(ITEMS)+3,dtype = int)
-        self._states=[]
+        self._state=np.array([],dtype = float)
+        self._state_label=[]
+        self._trigger_state=np.array([],dtype = float)
+        self._trigger_state_label = []
+        self._characters = []
+        self._targets = []
+        self._initialised = False
+        self._life = []
+        self._steps_no_touch = 0
 
         self._xmax = 0
         self._xmin = 0
         self._current_touches = 0
         self._robot_touch = False
 
+        self._map = None
+
         rospy.loginfo("Ready to play!")
         self._timer = Timer(0.5, self.get_state)
-        self._timer.start()
         
         self.get_state()
 
@@ -68,60 +77,67 @@ class StateAnalyser(object):
         self._timer = Timer(0.5, self.get_state)
         self._timer.start()
         
-        stateLabel=["items","state"]
-        for idx, item in enumerate(ITEMS):
-            self._state[idx] = self.get_closest(item)
-            if DEBUG:
-                print item + " " + str(self._state[idx])
-        self._state[-2] = self._robot_touch
-        self._state[-3] = self._current_touches > 0
+        if not self._initialised or len(self._life) == 0:
+            self._event_pub.publish(String("analyser_ready"))
+            return
 
-        if len(self._states) > 0 and (self._state == self._states[-1]).all():
-            self._state[-1] += 1
+        index = 0
+        for idx, character in enumerate(self._characters):
+            for other in (self._characters+self._targets)[idx+1:]:
+                self._state[index]=self.get_distance_objects(character,other)/DIAGONAL
+                index+=1
+        for value in self._life:
+            self._state[index] = value
+            index+=1
+
+        if len(self._state_label) == 0:
+            for idx, character in enumerate(self._characters):
+                for other in (self._characters+self._targets)[idx+1:]:
+                    self._state_label.append("d_"+character+"_"+other)
+            for idx, value in enumerate(self._life):
+                self._state_label.append("l_"+(self._characters+self._targets)[idx])
+            #print self._state_label
+            for c in self._characters:
+                self._trigger_state_label.append("l_"+c)
+            self._trigger_state_label.append("step_no_touch")
+            self._trigger_state_label.append("robot_touch")
+            self._trigger_state_label.append("child_touch")
+
+        self._trigger_state[0:len(self._characters)]=np.array(self._life[0:len(self._characters)])
+
+        #print "child touch" 
+        #print self._current_touches
+        #print "robot touch" 
+        #print self._robot_touch
+
+        if self._current_touches == 0 and self._robot_touch == 0:
+            self._steps_no_touch += 1
         else:
-            self._state[-1] = 0
-        self._states.append(np.array(self._state))
+            self._steps_no_touch = 0
 
-        self.publish_state(self._state,stateLabel)
-    
-    def publish_state(self,state,labels):
-        message = Int32MultiArray()
-        dim1 = MultiArrayDimension()
-        dim2 = MultiArrayDimension()
-        dim1.label = labels[0]
-        dim1.size = state.shape[0]
-        dim1.stride = state.size
-        message.layout.dim.append(dim1)
-        dim2.label = labels[1]
-        dim2.size = 1#state.shape[1]
-        dim2.stride = dim2.size
-        message.layout.dim.append(dim2)
-        for a in state.flat[:]:
-            message.data.append(a)
+        self._trigger_state[-3]=self._steps_no_touch
+        self._trigger_state[-2]=self._robot_touch
+        self._trigger_state[-1]=(self._current_touches > 0)
+
+        self.publish_states()
+
+    def on_life(self, message):
+        self._life = message.data
+
+    def on_map(self, message):
+        self._map = np.flipud(np.ndarray.astype(np.reshape(message.data,(message.info.height, message.info.width)),dtype=bool))
+        self._map = ndimage.binary_dilation(self._map,structure=ndimage.generate_binary_structure(2,2), iterations = 5).astype(self._map.dtype)
+
+        
+    def publish_states(self):
+        message = ListFloatStamped()
+        message.header.stamp = rospy.Time(0)
+        message.header.frame_id = "sandtray"
+        message.data = self._state
         self._state_pub.publish(message)
-        pass
 
-    def get_closest(self, item, pose =None, threshold = DISTANCE_THRESHOLD):
-        if pose is None:
-            pose = self.get_pose(item)
-        if  pose is None:
-            return -1 
-        pose = pose[0],pose[1]
-        if "stash" in self._zones.keys() and self.isin(pose, self._zones["stash"]):
-            return -2
-        distances=[]
-        for spatial_thing in SPATIAL_THING:
-            if spatial_thing == item:
-                distance.append(float('inf'))
-            else:
-                distances.append(self.dist(self.get_pose(spatial_thing), pose))
-
-        mini = min(distances)
-
-        if mini > threshold:
-            return -1
-
-        return np.argpartition(distances,1)[0]
+        message.data = self._trigger_state
+        self._trigger_state_pub.publish(message)
 
     def get_pose(self, item, reference=REFERENCE_FRAME):
         if item not in self._tl.getFrameStrings():
@@ -131,86 +147,30 @@ class StateAnalyser(object):
             (trans,rot) = self._tl.lookupTransform(reference, item, rospy.Time(0))
             return trans
         return None
-
-    def zone_item(self, item):
-        pose = self.get_pose(item)
-        if  pose is None:
-            return -1,-1 
-        pose = pose[0], pose[1]
-        return self.isin_zone(pose)
-
-
-    def isin_zone(self, pose):
-        index = [0]
-        for zone_type in enumerate(self._zone_types):
-            if zone_type[1] in self._zones:
-                if self.isin(pose, self._zones[zone_type[1]],index):
-                    return zone_type[1],index[0]
-        return -1,-1
-
-    def isin(self, point, polygons, index=[0]):
-        if point is None:
-            return False
-
-        x,y = point
-
-
-        for idx, polygon in enumerate(polygons):
-            n = len(polygon)
-            inside = False
-
-            p1x,p1y = polygon[0]
-            for i in range (1,n+1):
-                p2x,p2y = polygon[i % n]
-                if y > min(p1y,p2y):
-                    if y <= max(p1y,p2y):
-                        if x <= max(p1x,p2x):
-                            if p1y != p2y:
-                                xinters = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x
-                                if p1x == p2x or x <= xinters:
-                                    inside = not inside
-                p1x,p1y = p2x,p2y
-            if inside:
-                index[0] = idx
-                return True
-        return False
-
-
+    
     def run(self):
         rospy.spin()
 
     def on_event(self, event):
-        if event.data == "release":
+        arguments = event.data.split("_")
+        if arguments[0] == "childrelease":
             self._current_touches -= 1
-        if  event.data.split("_")[0] == "releasing":
+        elif  arguments[0] == "robotrelease":
             self._robot_touch = False
-        if event.data == "touch": 
+        elif  arguments[0] == "childtouch": 
             self._current_touches += 1
-        if event.data.split("_")[0] == "touching":
+        elif  arguments[0] == "robottouch":
             self._robot_touch = True
-
-    def on_zones(self, zones):
-        self._zoneslock.acquire()
-        self._zones.clear()
-        xmax = 0
-        ymin = 0
-        for zone in zones.markers:
-            if zone.action == Marker.ADD:
-                name = zone.ns.split("_")[-1]
-                self._zone_types.add(name)
-                rospy.loginfo("Adding/updating a %s zone" % name)
-                self._zones.setdefault(name, []).append([(p.x,p.y) for p in zone.points])
-                for point in zone.points:
-                    xmax = max(xmax, point.x)
-                    ymin = min(ymin, point.y)
-        self._xmax=xmax
-        self._ymin=ymin
-        self._zone_types.add(COLORS[-1])
-        self._zones.setdefault(COLORS[-1],[]).append([(xmax,0),(xmax,ymin), (xmax/0.88,ymin),(xmax/0.88,0)])
-        print self._zone_types
-
-        print "xmax " + str(xmax) + " ymin " + str(ymin)
-        self._zoneslock.release()
+        elif arguments[0] == "characters" and len(self._characters) == 0:
+            for i in range(1,len(arguments)):
+                self._characters.append(arguments[i].split(",")[0])
+        elif arguments[0] == "targets" and len(self._targets) == 0:
+            for i in range(1,len(arguments)):
+                self._targets.append(arguments[i].split(",")[0])
+            if len(self._characters) > 0 and len(self._targets) > 0:
+                self._initialised = True
+                self._state = np.zeros((len(self._characters) * (len(self._characters)+1))/2 + (len(self._targets)+1)*len(self._characters))
+                self._trigger_state = np.zeros(len(self._characters) + 3)
 
     def signal_handler(self, signal, frame):
             self._stopping = True
@@ -219,100 +179,9 @@ class StateAnalyser(object):
     def dist(self, a, b):
         return pow(a[0]-b[0],2)+pow(a[1]-b[1],2)
 
-    def get_point_action(self, masked_action):
-        zone_type = -1
-        zone_id = -1
-        
-        if masked_action[2] is not ma.masked:
-            zone_type = COLORS[masked_action[2]]
-            if masked_action[3] is not ma.masked:
-                zone_id = masked_action[3]
-        closeto = []
-        for i in range(3):
-            if masked_action[4+2*i] is not ma.masked:
-                name= SPATIAL_THING[masked_action[4+2*i]]
-                index = -1
-                if masked_action[5+2*i] is not ma.masked:
-                    index = masked_action[5+2*i]
-                closeto.append((name, index))
-        if DEBUG:
-            print zone_type
-            print zone_id
-            print closeto
 
-        
-        candidates = []
-        if zone_type == -1:
-            candidates += self.get_points_in_polygon([(0,0),(self._xmax,0),(self._xmax, self._ymin),(0,self._ymin)],200)
-        else:            
-            if len(self._zones) == 0 or len(self._zones[zone_type])==0:
-                return None
-            if zone_id == -1:
-                regions = random.sample(self._zones[zone_type],len(self._zones[zone_type]))
-            else:
-                regions = self._zones[zone_type]
-                regions = [regions[zone_id]]
-
-            for poly in regions:
-                candidates += self.get_points_in_polygon(poly,50)
-
-        best_dist = 1000
-        best_candidate = None
-
-        for c in candidates:
-            if closeto:
-                d=self.get_distance_pose_spatial_things(c,closeto)
-                if d<best_dist:
-                    best_dist =d
-                    best_candidate = Point(x=c[0],y=c[1])
-            else:
-                return Point(x=c[0],y=c[1])
-
-        return best_candidate
-
-    def get_point_away(self):
-
-        candidate = self.get_points_in_polygon([(0,0),(self._xmax,0),(self._xmax, self._ymin),(0,self._ymin)],1)
-        while self.get_closest(candidate, threshold = 10 * DISTANCE_THRESHOLD ) != -1:
-            candidate = self.get_points_in_polygon([(0,0),(self._xmax,0),(self._xmax, self._ymin),(0,self._ymin)],1)
-        candidate = candidate[0]
-        print candidate
-        return candidate 
-
-    def get_point_stash(self):
-        return self.get_points_in_polygon(self._zones["stash"][0],1)[0]
-
-    def get_points_in_polygon(self, poly, n):
-        points = []
-        p=shapely.geometry.Polygon(poly)
-        (minx, miny, maxx, maxy) = p.bounds
-
-        while len(points)<n:
-            point = shapely.geometry.Point(random.uniform(minx, maxx), random.uniform(miny, maxy))
-            if p.contains(point):
-                points.append((point.x,point.y))
-        return points
-
-
-    def get_distance_pose_spatial_things(self, pose, spatial_things):
-        distance=0
-        for spatial_thing in spatial_things:
-            if spatial_thing[0] in COLORS:
-                mindist = 1000
-                zone_type = spatial_thing[0]
-                zone_id = spatial_thing[1]
-                if zone_id == -1:
-                    regions = random.sample(self._zones[zone_type],len(self._zones[zone_type]))
-                else:
-                    regions = self._zones[zone_type]
-                    regions = [regions[zone_id]]
-                for poly in regions:
-                    for point in poly:
-                        mindist = min(self.dist(point, pose),mindist)
-                distance+=mindist
-            if spatial_thing[0] in ITEMS:
-                distance += self.dist(pose, self.get_pose(spatial_thing[0]))
-        return distance
+    def get_distance_objects(self, name1, name2):
+        return self.dist(self.get_pose(name1),self.get_pose(name2))
 
     def get_relative_pose(self, item, goal):
         pose = self.get_pose(item)
@@ -324,32 +193,100 @@ class StateAnalyser(object):
         goal_pose.pose.position.y = goal[1]
         return self._tl.transformPose(item, goal_pose)
 
-        
- 
-    def get_state_pose(self, item, stamped_pose):
-        pose = self.get_pose(item)
-        if pose is None:
-            return None
-        
-        item_id = ITEMS.index(item)
-        pose = self._tl.transformPose(REFERENCE_FRAME,stamped_pose)
-        pose = pose.pose.position
-        pose = pose.x, pose.y
-        #zone_type, zone_index = self.isin_zone(pose)
-        closest = self.get_closest(item, pose = pose)
-        #return zone_type, zone_index, closest
-        return closest
-    
-    def get_pose_close_to(self, item):
+    def get_absolute_pose(self, pose):
+        return self._tl.transformPose(REFERENCE_FRAME,pose)
+
+    def get_distance_item_pose(self, item, pose):
+        pose =pose.pose.position.x,pose.pose.position.y
+        return self.dist(self.get_pose(item), pose)
+
+    def get_pose_around(self, item):
         pose = self.get_pose(item)
         if pose == None:
             return None
-        print x
-        print y
         x = pose[0] + random.uniform(-DISTANCE_THRESHOLD,DISTANCE_THRESHOLD)/2
         y = pose[1] + random.uniform(-DISTANCE_THRESHOLD,DISTANCE_THRESHOLD)/2
         pose = x, y
         return pose
+    
+    def get_pose_close_to(self, origin, goal):
+        origin = self.get_pose(origin)
+        goal = self.get_pose(goal)
+        if origin is None or goal is None:
+            return None
+        origin = np.array([origin[0], origin[1]])
+        goal = np.array([goal[0], goal[1]])
+        dist = self.dist(origin, goal)
+
+        threshold = 4 * DISTANCE_THRESHOLD
+
+        if dist > threshold:
+            point = -math.sqrt(threshold/dist)*(goal-origin)+goal
+            point = self.find_empty_around_point(point)
+        else:
+            point = origin + 0.1 * (goal-origin)
+
+        return point
+
+    def get_point_away(self, origin, goal):
+        origin = self.get_pose(origin)
+        goal = self.get_pose(goal)
+        if origin is None or goal is None:
+            return None
+        origin = np.array([origin[0], origin[1]])
+        goal = np.array([goal[0], goal[1]])
+        dist = self.dist(origin, goal)
+
+        motion = 10 * DISTANCE_THRESHOLD
+
+        point = -math.sqrt(motion/dist)*(goal-origin)+origin
+        point = self.find_empty_around_point(point)
+
+        return point
+
+    def find_empty_around_point(self, point):
+        #Flip coordinates as table are accessed [y,x]
+        print "Point in: " + str(point)
+        point = point[::-1]
+        #Change coordinates to have tile
+        scale = np.array([-self._map.shape[0] / PHYSICAL_MAP_HEIGHT, self._map.shape[1] / PHYSICAL_MAP_WIDTH])
+        point = point * scale
+        #Cast to int
+        point = np.ndarray.astype(point, int)
+
+        transit_point = point
+        print "Transit in: " + str(transit_point)
+        radius = 0
+        while not self.test_point(transit_point):
+            radius += 1
+            for i in range(-radius,radius):
+                transit_point=point+[radius,i]
+                if self.test_point(transit_point):
+                    break
+                transit_point=point+[-radius,i]
+                if self.test_point(transit_point):
+                    break
+                transit_point=point+[i,radius]
+                if self.test_point(transit_point):
+                    break
+                transit_point=point+[i,-radius]
+                if self.test_point(transit_point):
+                    break
+        print "Transit out: " + str(transit_point)
+
+        transit_point = np.ndarray.astype(transit_point, int)
+        transit_point = transit_point / scale
+        transit_point = transit_point[::-1]
+
+        print "Point out: " + str(transit_point)
+
+        return transit_point
+
+    def test_point(self, point):
+        try:
+            return not self._map[point[0], point[1]]
+        except IndexError:
+            return False
 
 
 if __name__ == "__main__":

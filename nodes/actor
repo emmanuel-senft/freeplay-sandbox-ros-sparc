@@ -7,58 +7,54 @@ import operator
 import random
 
 import rospy
-from freeplay_sandbox_msgs.msg import DiscreteAction 
-from std_msgs.msg import Int32MultiArray
+from freeplay_sandbox_msgs.msg import DiscreteAction, ListFloatStamped 
+from std_msgs.msg import String
 
 DEBUG = False
 
 class Actor(object):
     def __init__(self):
-        self._state_sub = rospy.Subscriber("sparc/state", Int32MultiArray, self.on_state)
+        self._state_sub = rospy.Subscriber("sparc/state", ListFloatStamped, self.on_state)
+        self._trigger_state_sub = rospy.Subscriber("sparc/trigger_state", ListFloatStamped, self.on_trigger_state)
         self._action_sub = rospy.Subscriber("sparc/selected_action_dis",DiscreteAction, self.on_selected)
         self._action_sub = rospy.Subscriber("sparc/cancelled_action_dis",DiscreteAction, self.on_cancelled)
+        self._event_sub = rospy.Subscriber("sparc/event", String, self.on_event)
+
         self._action_pub = rospy.Publisher("sparc/proposed_action_dis", DiscreteAction, queue_size = 5)
         self._actions = []
-        #self._masked_states=[]
-        #self._masked_actions=[]
-        #self._reaction_timer = threading.Timer(2, self.select_action)
+        self._trigger_states = []
+
         self._has_moved = False
         self._moving_Timer = threading.Timer(10, self.reset_has_moved)
         self._state = None
         self._proposed_action = None
 
     def on_state(self, message):
-        dimension = [message.layout.dim[0].size, message.layout.dim[1].size]
-        current_state =  np.zeros(shape=(dimension[0],dimension[1]))
+        self._state = np.array(message.data)
+        ##print self._state
 
-        for i in range(0, dimension[0]):
-            for j in range(0,dimension[1]):
-                current_state[i,j] = message.data[dimension[1]*i+j]
-
-    ##    if self._state is None:
-        self._state = current_state
-        if current_state[-1] == 10 and current_state[-2] == 0 and current_state[-3] == False:
+    def on_trigger_state(self, message):
+        self._trigger_state = np.array(message.data)
+#        print self._trigger_state
+        if self._trigger_state[-3]%4 == 0:
             self.select_action()
 
-#        if np.any(self._state != current_state):
- #           if not self._reaction_timer.is_alive() and not self._moving_Timer.is_alive():
-  #              self._reaction_timer.start()
-   #         self._state = current_state
     def on_selected(self, message):
         self.on_action(message, 1)
 
+    def on_event(self, message):
+        if message.data == "select":
+            self.select_action()
+
     def on_cancelled(self, message):
-        print "cancelling"
+        #print "cancelling"
         self.on_action(message,-1)
 
     def on_action(self, message, reward):
-        print "received action"
-        action = message.data
-        mask = np.zeros(self._state.shape,dtype = bool)
-        for i in range(0, self._state.shape[0]):
-            for j in range(0, self._state.shape[1]):
-                mask[i,j]=message.mask[i*self._state.shape[1]+j]
-        masked_state = ma.array(self._state, mask = ~mask, dtype = int)
+        #print "received action"
+        action = message.action_id
+        state_mask = np.array(message.state_mask,dtype = bool)
+        masked_state = ma.array(self._state, mask = ~state_mask, dtype = float)
         if DEBUG:
             print "masked state"
             print masked_state
@@ -70,61 +66,69 @@ class Actor(object):
         else:
             new_action = Action(action, masked_state, reward)
             self._actions.append(new_action)
+        trigger_mask = np.array(message.trigger_mask)
+        masted_trigger_state = ma.array(self._trigger_state, mask = ~trigger_mask, dtype = float)
+        self._trigger_states.append(masted_trigger_state)
         self._proposed_action = None
-
-    #could do something with distance and value: general vs precise
-    def get_similarity_states(self, state1, state2):
+    
+    # Similarity (euclidian distance normalised by the number of defined dimensions)
+    # with x a masked state and y a normal one
+    def get_similarity_states(self, x, y):
         if DEBUG:
-            print state1==state2
-        distance = np.mean(state1[:-2]==state2[:-2])
-        if distance is ma.masked:
-            distance = 0.5
-        return distance
+            print x - y
+        #similarity = 1 - math.sqrt(np.sum((x-y)*(x-y)))/sum(~x.mask)
+        similarity = 1 - (np.sum((x-y)*(x-y)))/sum(~x.mask)
+        if similarity is ma.masked:
+            similarity = 0.5
+        return similarity
 
     def select_action(self):
         #if DEBUG:
         print "selecting action"
-        print self._state
+        #print self._state
         if len(self._actions) == 0:
             return
         weighted_rewards = np.zeros(len(self._actions))
+        indexes = np.zeros(len(self._actions),dtype=int)
         for i, action in enumerate(self._actions):
             print action._action
-            rewards = np.zeros(len(action._states))
-            similarities = np.zeros(len(action._states))
+            reward = 0
+            index = 0
+            max_similarity = 0
             for idx, state in enumerate(action._states):
                 print idx
                 print "state " + str(state)
                 print "reward " + str(action._rewards[idx])
-                print "similarity " + str(self.get_similarity_states(self._state, state))
-                rewards[idx] = action._rewards[idx]
-                similarities[idx] = self.get_similarity_states(self._state, state)
-            #weighted_rewards[i] = np.mean(rewards[similarities==max(similarities)])*max(similarities)
-            if sum(similarities)>0:
-                weighted_rewards[i] = np.dot(rewards,similarities)/sum(similarities)*max(similarities)
-        print "weighted rewards"
+                print "similarity " + str(self.get_similarity_states(state, self._state))
+                similarity = self.get_similarity_states(state, self._state)
+                if (similarity > max_similarity):
+                    max_similarity = similarity
+                    reward = action._rewards[idx]
+                    index = idx
+            weighted_rewards[i] = reward * max_similarity
+            indexes[i] = index
+        print "rewards"
         print weighted_rewards
         if max(weighted_rewards)<=0:
             print "no good candidate"
             return
-        
-        
-        proposed_action = self._actions[random.choice(np.where(weighted_rewards==max(weighted_rewards))[0])]
-        interest = np.zeros(action._states[0].shape)
-        for idx, state in enumerate(proposed_action._states):
-            interest += proposed_action._rewards[idx] * np.logical_and((state == self._state).data, ~state.mask)
+        index_selected_action = np.argmax(weighted_rewards)
+        proposed_action = self._actions[index_selected_action]
 
-        mask = interest > 0
+        print "index"
+        print index_selected_action
+        print "indexes"
+        print indexes[index_selected_action]
+
+        mask = ~self._actions[index_selected_action]._states[indexes[index_selected_action]].mask
 
         message = DiscreteAction()
         message.header.frame_id = "sandtray"
         message.header.stamp = rospy.Time(0)
-        for i in proposed_action._action:
-            message.data.append(int(i))
+        message.action_id = self._actions[index_selected_action]._action
 #        for i in action.mask:
 #            message.maskAction.append(bool(not i))
-        for i in mask:
-            message.mask.append(bool(i))
+        message.state_mask=mask
 
         self._action_pub.publish(message)
 #        self._has_moved = True
