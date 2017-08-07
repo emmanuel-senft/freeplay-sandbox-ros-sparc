@@ -220,6 +220,12 @@ def on_pose(pose):
     else:
         rospy.loginfo("Got pose to look at, but I've fallen!");
 
+def on_blocking_speech(sentence):
+    ttsProxy.say(sentence.data)
+    pub_event.publish(String("blocking_speech_finished"))
+    
+
+
 class FallResponder(ALModule):
   """ Module to react to robotHasFallen events """
   
@@ -250,7 +256,10 @@ if __name__ == "__main__":
         rospy.logerr('error in handedness param')
 
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
-
+    
+    sub_blocking_speech = rospy.Subscriber("/nao/blocking_speech", String, on_blocking_speech, queue_size=5)
+    sub_poses = rospy.Subscriber(POSES_TOPIC, PoseStamped, on_pose, queue_size=1) # queue_size = 1 to discard all but the most recent pose -- otherwise, tracking would possibly lag
+    pub_event = rospy.Publisher("/nao/events", String, queue_size=5)
 
 
     # We need this broker to be able to construct
@@ -265,6 +274,7 @@ if __name__ == "__main__":
     hasFallen = False;
     motionProxy = ALProxy("ALMotion", NAO_IP, port);
     memoryProxy = ALProxy("ALMemory", NAO_IP, port);
+    ttsProxy = ALProxy("ALTextToSpeech", NAO_IP, port);
     postureProxy = ALProxy("ALRobotPosture", NAO_IP, port)
     #fallResponder = FallResponder("fallResponder",motionProxy,memoryProxy);
     
