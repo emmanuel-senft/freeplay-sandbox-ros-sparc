@@ -42,6 +42,7 @@ class StateAnalyser(object):
         self._event_sub = rospy.Subscriber("sandtray/interaction_events", String, self.on_event)
         self._life_sub = rospy.Subscriber("sparc/life", ListFloatStamped, self.on_life)
         self._map_sub = rospy.Subscriber("map", OccupancyGrid, self.on_map)
+        self._gaze_sub = rospy.Subscriber("gazepose_0", PoseStamped, self.on_gaze)
 
         self._state_pub = rospy.Publisher("sparc/state", ListFloatStamped, queue_size = 5)
         self._trigger_state_pub = rospy.Publisher("sparc/trigger_state", ListFloatStamped, queue_size = 5)
@@ -58,6 +59,7 @@ class StateAnalyser(object):
         self._initialised = False
         self._life = []
         self._steps_no_touch = 0
+        self._eye_pose = (0,0)
 
         self._xmax = 0
         self._xmin = 0
@@ -89,19 +91,10 @@ class StateAnalyser(object):
         for value in self._life:
             self._state[index] = value
             index+=1
+        for v in (self._characters  + self._targets):
+            self._state[index]=self.dist(self.get_pose(v),self._eye_pose)/DIAGONAL
+            index+=1
 
-        if len(self._state_label) == 0:
-            for idx, character in enumerate(self._characters):
-                for other in (self._characters+self._targets)[idx+1:]:
-                    self._state_label.append("d_"+character+"_"+other)
-            for idx, value in enumerate(self._life):
-                self._state_label.append("l_"+(self._characters+self._targets)[idx])
-            #print self._state_label
-            for c in self._characters:
-                self._trigger_state_label.append("l_"+c)
-            self._trigger_state_label.append("step_no_touch")
-            self._trigger_state_label.append("robot_touch")
-            self._trigger_state_label.append("child_touch")
 
         self._trigger_state[0:len(self._characters)]=np.array(self._life[0:len(self._characters)])
 
@@ -128,6 +121,8 @@ class StateAnalyser(object):
         self._map = np.flipud(np.ndarray.astype(np.reshape(message.data,(message.info.height, message.info.width)),dtype=bool))
         self._map = ndimage.binary_dilation(self._map,structure=ndimage.generate_binary_structure(2,2), iterations = 5).astype(self._map.dtype)
 
+    def on_gaze(self, message):
+        self._eye_pose = (message.pose.position.x,message.pose.position.y)
         
     def publish_states(self):
         message = ListFloatStamped()
@@ -167,10 +162,29 @@ class StateAnalyser(object):
         elif arguments[0] == "targets" and len(self._targets) == 0:
             for i in range(1,len(arguments)):
                 self._targets.append(arguments[i].split(",")[0])
-            if len(self._characters) > 0 and len(self._targets) > 0:
+
+        if len(self._characters) > 0 and len(self._targets) > 0:
+            #Initiating labels
+            if len(self._state_label) == 0:
+                for idx, character in enumerate(self._characters):
+                    for other in (self._characters+self._targets)[idx+1:]:
+                        self._state_label.append("d_"+character+"_"+other)
+                for v in self._characters + self._targets:
+                    self._state_label.append("l_"+v)
+                for v in (self._characters  + self._targets):
+                    self._state_label.append("g_"+v)
+                print len(self._state_label)
+                
+                for c in self._characters:
+                    self._trigger_state_label.append("l_"+c)
+                self._trigger_state_label.append("step_no_touch")
+                self._trigger_state_label.append("robot_touch")
+                self._trigger_state_label.append("child_touch")
+
+                self._state = np.zeros(len(self._state_label))
+                self._trigger_state = np.zeros(len(self._trigger_state_label))
+
                 self._initialised = True
-                self._state = np.zeros((len(self._characters) * (len(self._characters)+1))/2 + (len(self._targets)+1)*len(self._characters))
-                self._trigger_state = np.zeros(len(self._characters) + 3)
 
     def signal_handler(self, signal, frame):
             self._stopping = True
