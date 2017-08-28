@@ -67,6 +67,9 @@
         </node>
 
         <!--        <node name="estimate_focus" pkg="freeplay_sandbox" type="estimate_focus" output="screen"/> -->
+
+    <node pkg="freeplay_sandbox" type="sandtray_gaze_viz" name="sandtray_gaze_viz" />
+
     </group>
 
 </launch>
