@@ -4,7 +4,7 @@
     <arg name="camera_device" default="/dev/video0" />
     <arg name="image" default="/v4l/camera/image_raw" />
 
-    <arg name="camera_info_url" default="package://gscam/logitech-webcam-pro-9000-1280x720.ini" />
+    <arg name="camera_info_url" default="package://gscam/examples/uncalibrated_parameters.ini" />
 
     <!-- Start the GSCAM camera driver -->
     <node ns="v4l" name="gscam_driver_v4l" pkg="gscam" type="gscam" output="screen">
@@ -15,12 +15,13 @@
         <param name="sync_sink" value="true"/>
     </node>
 
-    <!-- publish a transform for the camera, assuming a webcam above the sandtray's screen -->
-    <node name="gscam_transform" pkg="tf" type="static_transform_publisher" args="0.30 0.02 0.03 3.141 0 0 /sandtray $(arg camera_frame) 100"/>
+    <!-- publish a transform for the camera, assuming a webcam below the sandtray's screen -->
+    <node name="gscam_transform" pkg="tf" type="static_transform_publisher" args="0.30 -0.25 0.03 3.141 0 0 /sandtray $(arg camera_frame) 100"/>
 
     <node pkg="gazr" type="estimate" name="gazr">
         <param name="face_model" value="$(find gazr)/shape_predictor_68_face_landmarks.dat" />
         <remap from="/image" to="$(arg image)"/>
+        <remap from="/rgb" to="$(arg image)"/>
     </node>
 
     <node pkg="freeplay_sandbox" type="sandtray_gaze_viz" name="sandtray_gaze_viz" />

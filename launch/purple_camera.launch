@@ -64,6 +64,7 @@
             <param name="face_model" value="$(find gazr)/shape_predictor_68_face_landmarks.dat" />
             <param name="prefix" value="$(arg face1)" />
             <remap from="image" to="rgb/image_raw"/>
+            <remap from="/rgb" to="rgb/image_raw"/>
         </node>
 
         <!--        <node name="estimate_focus" pkg="freeplay_sandbox" type="estimate_focus" output="screen"/> -->
