@@ -27,6 +27,7 @@ class ItemMover(object):
         self._event_sub = rospy.Subscriber("sandtray/interaction_events", String, self.on_event)
 
         self._motion = actionlib.SimpleActionClient('move_sandbox_items', freeplay_sandbox_msgs.msg.PlaygroundNavigationAction)
+        self._speech_pub = rospy.Publisher("speech", String, queue_size = 5)
         self._motion.wait_for_server()
 
         rospy.loginfo("Ready to play!")
@@ -57,6 +58,11 @@ class ItemMover(object):
             print "sending " + item + " to " + str(pose.x) + " " + str(pose.y)
             goal = freeplay_sandbox_msgs.msg.PlaygroundNavigationGoal(item=action.header.frame_id,goal=pose)
             self._motion.send_goal(goal)
+
+        if action.type == "drawAtt":
+            item = action.header.frame_id
+            self._speech_pub.publish(String("Look at the "+item.split("-")[0]))
+
 
     def on_event(self,msg):
         if msg.data.startswith("robotrelease_"):
