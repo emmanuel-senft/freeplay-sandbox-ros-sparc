@@ -78,6 +78,20 @@ class ActionAnalyser(object):
         action_str = self._actions[action_id]
         action_str = action_str.split("_")
         print action_str
+
+        message_out = ContinuousAction()
+
+        print len(self._state_analyser._state_label)
+        print len(state_mask)
+        print [self._state_analyser._state_label[i] for i,v in enumerate(state_mask) if v]
+        for str in [self._state_analyser._state_label[i] for i,v in enumerate(state_mask) if v]:
+            for i,s in enumerate(str.split("_")):
+                if i>0 and s not in message_out.strings:
+                    message_out.strings.append(s) 
+
+        message_out.header.frame_id = action_str[1]
+        message_out.header.stamp = rospy.Time(0)
+            
         if action_str[0].startswith("mv"):
             goal = None
             if action_str[1] in self._state_analyser._characters and (action_str[2] in self._state_analyser._characters or action_str[2] in self._state_analyser._targets):
@@ -102,19 +116,6 @@ class ActionAnalyser(object):
             print "delta " 
             print goal
 
-            message_out = ContinuousAction()
-
-            #Find formula
-            print len(self._state_analyser._state_label)
-            print len(state_mask)
-            print [self._state_analyser._state_label[i] for i,v in enumerate(state_mask) if v]
-            for str in [self._state_analyser._state_label[i] for i,v in enumerate(state_mask) if v]:
-                for i,s in enumerate(str.split("_")):
-                    if i>0 and s not in message_out.strings:
-                        message_out.strings.append(s) 
-
-            message_out.header.frame_id = action_str[1]
-            message_out.header.stamp = rospy.Time(0)
             message_out.pose.position.x = goal.x
             message_out.pose.position.y = goal.y
             message_out.pose.position.z = 0
