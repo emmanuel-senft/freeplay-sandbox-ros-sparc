@@ -188,6 +188,7 @@ class StateAnalyser(object):
 
     def signal_handler(self, signal, frame):
             self._stopping = True
+            self._timer.cancel()
             sys.exit(0)
 
     def dist(self, a, b):
