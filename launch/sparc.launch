@@ -1,9 +1,9 @@
 <launch>
     <node pkg="freeplay_sparc" type="woz_play" name="woz_play" output="screen">
     </node>
-<!--    <node pkg="freeplay_sparc" type="action_analyser" name="action_analyser" output="screen">
+    <node pkg="freeplay_sparc" type="action_analyser" name="action_analyser" output="screen">
     </node>
-    <node pkg="freeplay_sparc" type="state_analyser" name="state_analyser" output="screen">
-    </node> -->
+    <node pkg="freeplay_sparc" type="actor" name="actor" output="screen">
+    </node>
 
 </launch>
