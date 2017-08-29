@@ -18,7 +18,7 @@ MAP_HEIGHT=0.335
 REFERENCE_FRAME="/sandtray"
 
 
-class ItemMover(object):
+class Player(object):
     def __init__(self):
         self._tl = tf.TransformListener()
         rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
@@ -85,5 +85,5 @@ if __name__ == "__main__":
     rospy.init_node('woz_play')
 
     rospy.loginfo("Initializing TF...")
-    mover = ItemMover()
-    mover.run()
+    player = Player()
+    player.run()
