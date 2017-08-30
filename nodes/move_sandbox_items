@@ -10,10 +10,12 @@ touches'. It publishes as well the trajectory as a marker array for display in
 RViz.
 """
 import rospy
+import threading
 
 import actionlib
 import tf
 
+from std_msgs.msg import String
 from geometry_msgs.msg import PoseStamped
 from visualization_msgs.msg import Marker
 
@@ -54,6 +56,8 @@ class PlaygroundTrajTrackerAction(object):
         self._action_name = name
         self._as = actionlib.SimpleActionServer(self._action_name, freeplay_sandbox_msgs.msg.PlaygroundNavigationAction, execute_cb=self.execute_cb, auto_start = False)
         self._as.start()
+        self._event = threading.Event()
+        self._sub_event = rospy.Subscriber("nao/events", String, self.on_event)
 
     def execute_cb(self, goal):
         # helper variables
@@ -98,6 +102,10 @@ class PlaygroundTrajTrackerAction(object):
         #wait until time instructed to start executing
         rospy.sleep(requested_traj.header.stamp-rospy.Time.now());
 
+        #wait for initial pointing to be done
+        pub_poses.publish(requested_traj.poses[0])
+        self.wait_for_movement_finished()
+
         rospy.loginfo("Waiting a bit more (" + str(requested_traj.poses[0].header.stamp.to_sec()) + "s) to give the robot time to prepare...")
         #wait for robot to get to starting point
         rospy.sleep(requested_traj.poses[0].header.stamp.to_sec()); 
@@ -137,6 +145,16 @@ class PlaygroundTrajTrackerAction(object):
         visualize_traj(written_points)
 
         return True
+
+    def wait_for_movement_finished(self):
+        print "Start waiting"
+        self._event.clear()
+        self._event.wait(5)
+        print "stop waiting"
+    
+    def on_event(self, message):
+        if message.data == "pointing_finished":
+            self._event.set()
 
 
 if __name__ == '__main__':

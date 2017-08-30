@@ -16,6 +16,7 @@ import motion
 import numpy
 import math
 import random
+import threading
 
 TO_RAD = math.pi / 180
 
@@ -139,7 +140,8 @@ def point_at(targetpose):
               "RElbowRoll"]
     rospy.logdebug("Moving shoulder, elbow: %s" % str([angles[0]/TO_RAD, angles[1]/TO_RAD]))
     fractionMaxSpeed  = 0.3
-    motionProxy.setAngles(names, angles, fractionMaxSpeed)
+    motionProxy.angleInterpolationWithSpeed(names, angles, fractionMaxSpeed)
+    pub_event.publish(String("pointing_finished"))
 
 def set_pointing_posture():
     global robot_ready_to_point
@@ -211,7 +213,7 @@ def on_pose(pose):
         if not robot_ready_to_point:
             set_pointing_posture()
         else:
-            point_at(pose)
+            threading.Thread(target=point_at,args=(pose,)).start()
             look_at(pose)
 
         last_pose = rospy.Time.now()
@@ -319,7 +321,7 @@ if __name__ == "__main__":
                 if not robot_ready_to_point:
                     set_pointing_posture()
                 else:
-                    point_at(robot_focus)
+                    threading.Thread(target=point_at,args=(robot_focus,)).start()
                     look_at(robot_focus)
             else:
                 is_tracking_focus = False
