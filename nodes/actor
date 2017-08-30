@@ -16,8 +16,7 @@ class Actor(object):
     def __init__(self):
         self._state_sub = rospy.Subscriber("sparc/state", ListFloatStamped, self.on_state)
         self._trigger_state_sub = rospy.Subscriber("sparc/trigger_state", ListFloatStamped, self.on_trigger_state)
-        self._action_sub = rospy.Subscriber("sparc/selected_action_dis",DiscreteAction, self.on_selected)
-        self._action_sub = rospy.Subscriber("sparc/cancelled_action_dis",DiscreteAction, self.on_cancelled)
+        self._action_sub = rospy.Subscriber("sparc/rewarded_action_dis",DiscreteAction, self.on_action)
         self._event_sub = rospy.Subscriber("sparc/event", String, self.on_event)
 
         self._action_pub = rospy.Publisher("sparc/proposed_action_dis", DiscreteAction, queue_size = 5)
@@ -39,20 +38,17 @@ class Actor(object):
         if self._trigger_state[-3]%4 == 0:
             self.select_action()
 
-    def on_selected(self, message):
-        self.on_action(message, 1)
+        #if self._trigger_state[-3]%4 == 0:
+        #    self.select_action()
 
     def on_event(self, message):
         if message.data == "select":
             self.select_action()
 
-    def on_cancelled(self, message):
-        #print "cancelling"
-        self.on_action(message,-1)
-
-    def on_action(self, message, reward):
+    def on_action(self, message):
         #print "received action"
         action = message.action_id
+        reward = message.reward
         state_mask = np.array(message.state_mask,dtype = bool)
         masked_state = ma.array(self._state, mask = ~state_mask, dtype = float)
         if DEBUG:

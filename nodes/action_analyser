@@ -37,8 +37,7 @@ class ActionAnalyser(object):
         self._cancelled_action_sub = rospy.Subscriber("sparc/cancelled_action",ContinuousAction , self.on_cancelled_action)
 
         self._proposed_action_sub = rospy.Subscriber("sparc/proposed_action_dis",DiscreteAction, self.on_action_proposed)
-        self._selected_action_pub = rospy.Publisher("sparc/selected_action_dis", DiscreteAction, queue_size = 5)
-        self._cancelled_action_pub = rospy.Publisher("sparc/cancelled_action_dis", DiscreteAction, queue_size = 5)
+        self._rewarded_action_pub = rospy.Publisher("sparc/rewarded_action_dis", DiscreteAction, queue_size = 5)
 
         self._proposed_action_pub = rospy.Publisher("sparc/proposed_action", ContinuousAction, queue_size = 5)
 
@@ -172,7 +171,7 @@ class ActionAnalyser(object):
         action = self._actions.index(action)
         #print action
 
-        self.publish_action(action, mask, trigger_mask)
+        self.publish_action(action, mask, trigger_mask, 1)
 
         if DEBUG:
             print mask
@@ -242,14 +241,15 @@ class ActionAnalyser(object):
         self._cancelled_action_pub.publish(message)
 
 
-    def publish_action(self, action, mask, trigger_mask):
+    def publish_action(self, action, mask, trigger_mask, reward):
         message = DiscreteAction() 
         message.header.frame_id = REFERENCE_FRAME
         message.header.stamp = rospy.Time(0)
         message.action_id = action
         message.state_mask = mask
         message.trigger_mask = trigger_mask
-        self._selected_action_pub.publish(message)
+        message.reward = reward
+        self._rewarded_action_pub.publish(message)
 
     def run(self):
         rospy.spin()
