@@ -258,7 +258,6 @@ if __name__ == "__main__":
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
     
     sub_blocking_speech = rospy.Subscriber("/nao/blocking_speech", String, on_blocking_speech, queue_size=5)
-    sub_poses = rospy.Subscriber(POSES_TOPIC, PoseStamped, on_pose, queue_size=1) # queue_size = 1 to discard all but the most recent pose -- otherwise, tracking would possibly lag
     pub_event = rospy.Publisher("/nao/events", String, queue_size=5)
 
 
