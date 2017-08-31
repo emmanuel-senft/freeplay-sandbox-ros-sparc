@@ -62,9 +62,11 @@ class Actor(object):
         else:
             new_action = Action(action, masked_state, reward)
             self._actions.append(new_action)
-        trigger_mask = np.array(message.trigger_mask)
-        masted_trigger_state = ma.array(self._trigger_state, mask = ~trigger_mask, dtype = float)
-        self._trigger_states.append(masted_trigger_state)
+
+        if len(message.trigger_mask) > 0:
+            trigger_mask = np.array(message.trigger_mask)
+            masked_trigger_state = ma.array(self._trigger_state, mask = ~trigger_mask, dtype = float)
+            self._trigger_states.append(masked_trigger_state)
         self._proposed_action = None
     
     # Similarity (euclidian distance normalised by the number of defined dimensions)

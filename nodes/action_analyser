@@ -78,6 +78,22 @@ class ActionAnalyser(object):
         action_str = action_str.split("_")
         print action_str
 
+        #Identify if action doable (if life of all items>0)
+        for str in action_str:
+            try:
+                index=self._state_analyser._state_label.index("l_"+str)
+            except ValueError:
+                pass
+            else:
+                if not (self._state_analyser._state[index] > 0):
+                    print "Dead item: "+str
+                    mask = np.full(self._state_analyser._state.shape, False, dtype=bool)
+                    mask[index] = True
+                    message.state_mask = mask
+                    message.reward = -1
+                    self._rewarded_action_pub.publish(message)
+                    return
+                    
         message_out = ContinuousAction()
 
         print len(self._state_analyser._state_label)
