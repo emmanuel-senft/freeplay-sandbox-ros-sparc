@@ -54,14 +54,8 @@ class Actor(object):
         if DEBUG:
             print "masked state"
             print masked_state
-        for known_action in self._actions:
-            if known_action._action == action:
-                known_action._states.append(masked_state)
-                known_action._rewards.append(reward)
-                break
-        else:
-            new_action = Action(action, masked_state, reward)
-            self._actions.append(new_action)
+
+        self.add_point(action, masked_state, reward)
 
         if len(message.trigger_mask) > 0:
             trigger_mask = np.array(message.trigger_mask)
@@ -140,6 +134,17 @@ class Actor(object):
 
     def run(self):
         rospy.spin()
+
+
+    def add_point(self, action, state, reward):
+        for known_action in self._actions:
+            if known_action._action == action:
+                known_action._states.append(state)
+                known_action._rewards.append(reward)
+                break
+        else:
+            new_action = Action(action, state, reward)
+            self._actions.append(new_action)
 
 class Action(object):
     def __init__(self, act, state, reward):
