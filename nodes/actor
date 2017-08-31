@@ -5,10 +5,12 @@ import math
 import time, threading
 import operator
 import random
+import json
 
 import rospy
 from freeplay_sandbox_msgs.msg import DiscreteAction, ListFloatStamped 
 from std_msgs.msg import String
+import signal, sys
 
 DEBUG = False
 
@@ -27,6 +29,10 @@ class Actor(object):
         self._moving_Timer = threading.Timer(10, self.reset_has_moved)
         self._state = None
         self._proposed_action = None
+        try:
+            self.load_json()
+        except Exception:
+            pass
 
     def on_state(self, message):
         self._state = np.array(message.data)
@@ -135,6 +141,36 @@ class Actor(object):
     def run(self):
         rospy.spin()
 
+    def signal_handler(self, signal, frame):
+        self.save_json()
+        sys.exit()
+
+    def save_json(self):
+        data=[]
+        for a in self._actions:
+            action = {"id": a._action}
+            points = []
+            for idx, reward in enumerate(a._rewards):
+                item={"s":a._states[idx].tolist(),"r":reward}
+                points.append(item)
+            action["points"]=points
+            data.append(action)
+        with open('/home/senft/data.json','w') as outfile:
+            json.dump(data, outfile)
+#
+    def load_json(self):
+        with open('/home/senft/data.json','r') as infile:
+            data=json.load(infile)
+            for a in data:
+                id = a["id"]
+                points = a["points"]
+                for p in points:
+                    m = (p["s"] == np.array(None))
+                    d = np.where(p["s"] == np.array(None),0,p["s"])
+                    print d
+                    s=ma.array(d, mask=m)
+                    self.add_point(id, s, p["r"])
+                
 
     def add_point(self, action, state, reward):
         for known_action in self._actions:
@@ -155,4 +191,5 @@ class Action(object):
 if __name__ == "__main__":
     rospy.init_node('actor')
     actor = Actor()
+    signal.signal(signal.SIGINT, actor.signal_handler)
     actor.run()
