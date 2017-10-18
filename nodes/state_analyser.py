@@ -60,6 +60,7 @@ class StateAnalyser(object):
         self._life = []
         self._steps_no_touch = 0
         self._eye_pose = (0,0)
+        self._progression = 0
 
         self._game_running = False
 
@@ -96,7 +97,8 @@ class StateAnalyser(object):
         for v in (self._characters  + self._targets):
             self._state[index]=self.dist(self.get_pose(v),self._eye_pose)/DIAGONAL
             index+=1
-
+        self._state[index] = self._progression
+        index+=1
 
         self._trigger_state[0:len(self._characters)]=np.array(self._life[0:len(self._characters)])
 
