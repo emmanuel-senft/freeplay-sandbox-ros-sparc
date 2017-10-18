@@ -28,6 +28,7 @@ class Player(object):
 
         self._motion = actionlib.SimpleActionClient('move_sandbox_items', freeplay_sandbox_msgs.msg.PlaygroundNavigationAction)
         self._speech_pub = rospy.Publisher("speech", String, queue_size = 5)
+        self._poses_pub = rospy.Publisher("poses", PoseStamped, queue_size = 5)
         self._motion.wait_for_server()
 
         rospy.loginfo("Ready to play!")
@@ -59,10 +60,22 @@ class Player(object):
             goal = freeplay_sandbox_msgs.msg.PlaygroundNavigationGoal(item=action.header.frame_id,goal=pose)
             self._motion.send_goal(goal)
 
-        if action.type == "drawAtt":
+        if action.type == "att":
             item = action.header.frame_id
             self._speech_pub.publish(String("Look at the "+item.split("-")[0]))
+            message = PoseStamped()
+            message.header.frame_id = item
+            message.header.stamp = rospy.Time.now()
+            self._poses_pub.publish(message)
 
+        if action.type == "fel":
+            self._speech_pub.publish(String("Well done"))
+
+        if action.type == "enc":
+            self._speech_pub.publish(String("Keep going, you can do it"))
+
+        if action.type == "rul":
+            self._speech_pub.publish(String("Remember, you have to feed the animals to keep them alive"))
 
     def on_event(self,msg):
         if msg.data.startswith("robotrelease_"):
