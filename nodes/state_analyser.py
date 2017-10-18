@@ -173,28 +173,31 @@ class StateAnalyser(object):
             for i in range(1,len(arguments)):
                 self._targets.append(arguments[i].split(",")[0])
 
-        if len(self._characters) > 0 and len(self._targets) > 0:
-            #Initiating labels
-            if len(self._state_label) == 0:
-                for idx, character in enumerate(self._characters):
-                    for other in (self._characters+self._targets)[idx+1:]:
-                        self._state_label.append("d_"+character+"_"+other)
-                for v in self._characters + self._targets:
-                    self._state_label.append("l_"+v)
-                for v in (self._characters  + self._targets):
-                    self._state_label.append("g_"+v)
-                print len(self._state_label)
-                
-                for c in self._characters:
-                    self._trigger_state_label.append("l_"+c)
-                self._trigger_state_label.append("step_no_touch")
-                self._trigger_state_label.append("robot_touch")
-                self._trigger_state_label.append("child_touch")
+        if len(self._characters) > 0 and len(self._targets) > 0 and not self._initialised:
+            self.init_label()
 
-                self._state = np.zeros(len(self._state_label))
-                self._trigger_state = np.zeros(len(self._trigger_state_label))
+    def init_label(self):
+        for idx, character in enumerate(self._characters):
+            for other in (self._characters+self._targets)[idx+1:]:
+                self._state_label.append("d_"+character+"_"+other)
+        for v in self._characters + self._targets:
+            self._state_label.append("l_"+v)
+        for v in (self._characters  + self._targets):
+            self._state_label.append("g_"+v)
+        #progression, round number
+        self._state_label.append("g_p")
+        print len(self._state_label)
+        
+        for c in self._characters:
+            self._trigger_state_label.append("l_"+c)
+        self._trigger_state_label.append("step_no_touch")
+        self._trigger_state_label.append("robot_touch")
+        self._trigger_state_label.append("child_touch")
 
-                self._initialised = True
+        self._state = np.zeros(len(self._state_label))
+        self._trigger_state = np.zeros(len(self._trigger_state_label))
+
+        self._initialised = True
 
     def signal_handler(self, signal, frame):
             self._stopping = True
