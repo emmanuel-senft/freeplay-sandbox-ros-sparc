@@ -22,7 +22,10 @@ MAP_HEIGHT=0.335
 DEBUG = False
 
 REFERENCE_FRAME="/sandtray"
-ACTION_ATTENTION = "att_"
+ACTION_ATTENTION = "att"
+ACTION_ENCOURAGEMENT = "enc"
+ACTION_FELICITATION = "fel"
+ACTION_RULES = "rul"
 ACTION_MOVE_TO = "mvt"
 ACTION_MOVE_CLOSE = "mvc"
 ACTION_MOVE_AWAY = "mva"
@@ -140,17 +143,17 @@ class ActionAnalyser(object):
             message_out.pose.orientation.w = 1.
             message_out.type = "move"
             self._proposed_action_pub.publish(message_out)
-        if action_str[0] == "att":
-            message_out.type = "drawAtt"
+        if (action_str[0] == ACTION_ATTENTION or action_str[0] == ACTION_FELICITATION or 
+            action_str[0] == ACTION_ENCOURAGEMENT or action_str[0] == ACTION_RULES):
+            message_out.type = action_str[0]
             self._proposed_action_pub.publish(message_out)
-            print "publishing"
 
     def get_target(self, action, mask):
          masked_action = ma.array(action, mask = ~mask, dtype = int)
          return self._state_analyser.get_point_action(masked_action)
 
     def on_cancelled_action(self, message):
-        item = message.header.frame_id
+        items = message.header.frame_id
         closest = self._state_analyser.get_state_pose(item, message)
         item_id = ITEMS.index(item)
         strings = message.strings+[item]
@@ -181,8 +184,8 @@ class ActionAnalyser(object):
         action = 0 
         if message.type == "move":
             action = self.get_action_move(item, message, message.strings)
-        if message.type == "drawAtt":
-            action = ACTION_ATTENTION+message.header.frame_id
+        if message.type == ACTION_ATTENTION:
+            action = ACTION_ATTENTION+"_"+message.header.frame_id
         #print action
         action = self._actions.index(action)
         #print action
@@ -197,7 +200,7 @@ class ActionAnalyser(object):
         if not self._state_analyser._initialised:
             return False
         for o in self._state_analyser._characters+self._state_analyser._targets:
-            self._actions.append(ACTION_ATTENTION + o)
+            self._actions.append(ACTION_ATTENTION + "_" + o)
         for c in self._state_analyser._characters:
             for o in self._state_analyser._characters + self._state_analyser._targets:
                 self._actions.append(ACTION_MOVE_TO+"_"+c+"_"+o)
@@ -205,6 +208,9 @@ class ActionAnalyser(object):
                 self._actions.append(ACTION_MOVE_CLOSE+"_"+c+"_"+o)
             for o in self._state_analyser._characters + self._state_analyser._targets:
                 self._actions.append(ACTION_MOVE_AWAY+"_"+c+"_"+o)
+            self._actions.append(ACTION_FELICITATION)
+            self._actions.append(ACTION_ENCOURAGEMENT)
+            self._actions.append(ACTION_RULES)
         else:
             return True
 
