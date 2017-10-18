@@ -61,6 +61,8 @@ class StateAnalyser(object):
         self._steps_no_touch = 0
         self._eye_pose = (0,0)
 
+        self._game_running = False
+
         self._xmax = 0
         self._xmin = 0
         self._current_touches = 0
@@ -74,7 +76,7 @@ class StateAnalyser(object):
         self.get_state()
 
     def get_state(self):
-        if self._stopping:
+        if self._stopping or not self._game_running:
             return
         self._timer = Timer(0.5, self.get_state)
         self._timer.start()
@@ -148,7 +150,13 @@ class StateAnalyser(object):
 
     def on_event(self, event):
         arguments = event.data.split("_")
-        if arguments[0] == "childrelease":
+        if arguments[0] == "start":
+            self._game_running = True
+            self._progression = float(arguments[1])/float(arguments[2])
+            self.get_state()
+        elif arguments[0] == "stop":
+            self._game_running = False
+        elif arguments[0] == "childrelease":
             self._current_touches -= 1
         elif  arguments[0] == "robotrelease":
             self._robot_touch = False
