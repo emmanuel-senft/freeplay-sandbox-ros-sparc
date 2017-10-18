@@ -11,6 +11,7 @@ import rospy
 from freeplay_sandbox_msgs.msg import DiscreteAction, ListFloatStamped 
 from std_msgs.msg import String
 import signal, sys
+import os
 
 DEBUG = False
 
@@ -29,10 +30,14 @@ class Actor(object):
         self._moving_Timer = threading.Timer(10, self.reset_has_moved)
         self._state = None
         self._proposed_action = None
-        try:
-            self.load_json()
-        except Exception:
-            pass
+
+        self._use_files = rospy.get_param('~use_file',False)
+        print "using files " + str(self._use_files)
+        if self._use_files:
+            try:
+                self.load_json()
+            except Exception:
+                pass
 
     def on_state(self, message):
         self._state = np.array(message.data)
@@ -142,7 +147,8 @@ class Actor(object):
         rospy.spin()
 
     def signal_handler(self, signal, frame):
-        self.save_json()
+        if self._use_files:
+            self.save_json()
         sys.exit()
 
     def save_json(self):
