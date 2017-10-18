@@ -7,10 +7,6 @@
          sandbox, and provide a path planning service to move around said objects -->
     <node pkg="freeplay_sandbox" type="sandbox_map_and_plan" name="map_and_plan" required="true" />
 
-    <!-- creates an action server to move sandbox objects to specific positions, 
-         using the path planner -->
-    <node pkg="freeplay_sparc" type="move_sandbox_items" name="move_sandbox_items" required="true" />
-
     <!-- process the sandbox background image to extract possible zones using
          colour-based segmentation -->
     <node pkg="freeplay_sandbox" type="zones_from_image" name="sandbox_zones_from_image" required="true" output="screen">
