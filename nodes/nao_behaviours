@@ -284,7 +284,7 @@ if __name__ == "__main__":
     
     motionProxy.wbEnableEffectorControl(effector,False); #if robot has fallen it will have a hard time getting up if the effector is still trying to be kept in a particular position
     motionProxy.wakeUp()
-    postureProxy.goToPosture("StandInit", 0.5)
+    postureProxy.goToPosture("Stand", 0.5)
 
     set_pointing_posture()
 
