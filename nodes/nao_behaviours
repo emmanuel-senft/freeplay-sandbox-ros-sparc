@@ -24,7 +24,7 @@ TO_RAD = math.pi / 180
 axisMask=motion.AXIS_MASK_VEL
 #axisMask=motion.AXIS_MASK_ALL
 
-HEAD_FRAME="Head"
+HEAD_FRAME="Neck"
 
 NAO_ARM_LENGTH=0.105 #m -> lenght of the link RBicep, from URDF
 NAO_FOREARM_LENGTH=0.11 #m -> approx. lenght of forearm + half hand
@@ -66,14 +66,17 @@ def look_at(pose):
     yaw = clamp(yaw, (-2.0857, 2.0857))
     pitch = clamp(-pitch, (-0.6720, 0.5149)) #beware the '-pitch'!
 
-    if abs(yaw) < 0.01 and abs(pitch) < 0.01:
+    joints = ['HeadYaw','HeadPitch']
+    angles = motionProxy.getAngles(joints, True)
+
+    if abs(angles[0]-yaw) < 0.01 and abs(angles[1]-pitch) < 0.01:
        return
 
-    joints = ['HeadYaw','HeadPitch']
     #motionProxy.angleInterpolationWithSpeed(joints, [yaw, pitch], 0.1) # blocking
-    speed = 0.1 if abs(yaw) > 0.1 else max(0.005, abs(yaw)) # adapt the speed to the distance to move
+    speed = 0.1 if abs(angles[0] - yaw) > 0.1 else max(0.005, abs(angles[0]-yaw)) # adapt the speed to the distance to move
     rospy.logdebug("Moving head by: pan: %s, tilt: %s at %s%% of speed" % (yaw, pitch, speed * 100))
-    motionProxy.changeAngles(joints, [yaw, pitch], speed) # non-blocking
+    print "x " +str(pose.pose.position.x) + " yaw "+str(yaw)
+    motionProxy.setAngles(joints, [yaw, pitch], speed) # non-blocking
 
 
 def arm_ik(targetpose, reference_frame="RShoulder"):
