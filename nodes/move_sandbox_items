@@ -58,6 +58,7 @@ class PlaygroundTrajTrackerAction(object):
         self._as.start()
         self._event = threading.Event()
         self._sub_event = rospy.Subscriber("nao/events", String, self.on_event)
+        self._pub_event = rospy.Publisher("nao/events", String, queue_size = 5)
 
     def execute_cb(self, goal):
         # helper variables
@@ -104,7 +105,7 @@ class PlaygroundTrajTrackerAction(object):
 
         #wait for initial pointing to be done
         pub_poses.publish(requested_traj.poses[0])
-        self.wait_for_movement_finished()
+        self.wait_for_pointing_finished()
 
         rospy.loginfo("Waiting a bit more (" + str(requested_traj.poses[0].header.stamp.to_sec()) + "s) to give the robot time to prepare...")
         #wait for robot to get to starting point
@@ -143,10 +144,11 @@ class PlaygroundTrajTrackerAction(object):
         pub_poses.publish(requested_traj.poses[len(requested_traj.poses)-1])
         written_points.append(p)
         visualize_traj(written_points)
+        self._pub_event.publish(String("motion_finished"))
 
         return True
 
-    def wait_for_movement_finished(self):
+    def wait_for_pointing_finished(self):
         print "Start waiting"
         self._event.clear()
         self._event.wait(5)
