@@ -25,15 +25,20 @@ class Player(object):
 
         self._action_sub = rospy.Subscriber("sparc/selected_action", freeplay_sandbox_msgs.msg.ContinuousAction, self.on_action_received)
         self._event_sub = rospy.Subscriber("sandtray/interaction_events", String, self.on_event)
+        self._nao_event_sub = rospy.Subscriber("nao/events", String, self.on_nao_event)
 
         self._motion = actionlib.SimpleActionClient('move_sandbox_items', freeplay_sandbox_msgs.msg.PlaygroundNavigationAction)
         self._speech_pub = rospy.Publisher("speech", String, queue_size = 5)
+        self._blocking_speech_pub = rospy.Publisher("nao/blocking_speech", String, queue_size = 5)
         self._poses_pub = rospy.Publisher("poses", PoseStamped, queue_size = 5)
+        self._event_pub = rospy.Publisher("nao/events", String, queue_size = 5)
         self._motion.wait_for_server()
 
         rospy.loginfo("Ready to play!")
         self.event_release = Event()
         self._moving_item = None
+        self._waiting_speech = None
+        self._waiting_pointing = None
 
     def run(self):
         rospy.spin()
@@ -67,20 +72,33 @@ class Player(object):
             message.header.frame_id = item
             message.header.stamp = rospy.Time.now()
             self._poses_pub.publish(message)
+            self._waiting_pointing=action.type
 
         if action.type == "fel":
-            self._speech_pub.publish(String("Well done"))
+            self.say_blocked("Well done", action.type)
 
         if action.type == "enc":
-            self._speech_pub.publish(String("Keep going, you can do it"))
+            self.say_blocked("Keep going, you can do it", action.type)
 
         if action.type == "rul":
-            self._speech_pub.publish(String("Remember, you have to feed the animals to keep them alive"))
+            self.say_blocked("Remember, you have to feed the animals to keep them alive", action.type)
+
+    def say_blocked(self, msg, action):
+        self._blocking_speech_pub.publish(String(msg))
+        self._waiting_speech = action
 
     def on_event(self,msg):
         if msg.data.startswith("robotrelease_"):
             self._moving_item = None
             self.event_release.set()
+
+    def on_nao_event(self, msg):
+        if msg.data == "blocking_speech_finished" and self._waiting_speech:
+            self._event_pub.publish(String(self._waiting_speech + "_finished"))
+            self._waiting_speech = None
+        if msg.data == "pointing_finished" and self._waiting_pointing:
+            self._event_pub.publish(String(self._waiting_pointing + "_finished"))
+            self._waiting_pointing = None
 
     def get_pose(self,item, reference=REFERENCE_FRAME):
         if item not in self._tl.getFrameStrings():
