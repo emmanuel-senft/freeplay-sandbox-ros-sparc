@@ -41,109 +41,24 @@ robot_ready_to_point = False
 
 last_pose = None
 
-def clamp(v, limits):
-    vmin, vmax = limits
-    return max(min(v, vmax), vmin)
-
-
-def xyz2pantilt(pose, headframe=HEAD_FRAME):
-    """
-    Convert a xyz target to pan and tilt angles for the head.
-
-    :param headframe: the frame of the head
-    :returns: (pan, tilt) in radians
-    """
-    #tl.waitForTransform(headframe,pose.header.frame_id, rospy.Time.now(), rospy.Duration(1.0))
-    pose.header.stamp = tl.getLatestCommonTime(pose.header.frame_id, headframe)
-    transformed_pose = tl.transformPose(headframe, pose)
-    pan = numpy.arctan2(transformed_pose.pose.position.y, transformed_pose.pose.position.x)
-    tilt = numpy.arctan2(transformed_pose.pose.position.z, transformed_pose.pose.position.x)
-    
-    return (pan,tilt)
-
-def look_at(pose):
-    yaw, pitch = xyz2pantilt(pose)
-    yaw = clamp(yaw, (-2.0857, 2.0857))
-    pitch = clamp(-pitch, (-0.6720, 0.5149)) #beware the '-pitch'!
-
-    joints = ['HeadYaw','HeadPitch']
-    angles = motionProxy.getAngles(joints, True)
-
-    if abs(angles[0]-yaw) < 0.01 and abs(angles[1]-pitch) < 0.01:
-       return
-
-    #motionProxy.angleInterpolationWithSpeed(joints, [yaw, pitch], 0.1) # blocking
-    speed = 0.1 if abs(angles[0] - yaw) > 0.1 else max(0.005, abs(angles[0]-yaw)) # adapt the speed to the distance to move
-    rospy.logdebug("Moving head by: pan: %s, tilt: %s at %s%% of speed" % (yaw, pitch, speed * 100))
-    print "x " +str(pose.pose.position.x) + " yaw "+str(yaw)
-    motionProxy.setAngles(joints, [yaw, pitch], speed) # non-blocking
-
-
-def arm_ik(targetpose, reference_frame="RShoulder"):
-    """
-    Returns (shoulder_joint, elbow_joint) such as the arm points towards the
-    target (x,y). We make a simple 2D approximation.
-
-              Y
-     X target ^
-      \  (x,y)|    O
-       \      |     \l2
-        \     |      \  elbow_joint
-         \    |       O
-          \   |      /
-          `.  |     /l1
-           |  |   ,'
-            \ |  /
-             \| / shoulder_joint
-              O:............> X
-    """
-
+def look_at(targetpose):
+    reference_frame = "torso"
     targetpose.header.stamp = tl.getLatestCommonTime(targetpose.header.frame_id,reference_frame)
     pose = tl.transformPose(reference_frame, targetpose)
 
-    # rotate the shoulder frame: on the robot, X points forward, on the drawing above, X points right
-    x = -pose.pose.position.y
-    y = pose.pose.position.x
-
-
-    l1=NAO_ARM_LENGTH
-    l2=NAO_FOREARM_LENGTH
-
-    if x == 0 and y == 0:
-        return None
-    if y < 0: # do not allow gestures *behind* the robot
-        return None
-
-    if (math.sqrt(x*x + y*y) > l1+l2):
-        shoulder_angle = -math.pi/2 + math.atan2(y,x)
-        elbow_angle = 0.0
-        if shoulder_angle > NAO_RSHOULDER_ANGLE_LIMITS[1]:
-            elbow_angle = shoulder_angle
-
-    else:
-        # planar solution of the Inverse Kinematic problem
-        elbow_angle = math.acos((x*x + y*y - l1*l1 - l2*l2)/(2*l1*l2))
-    
-        # note: -pi/2 comes from the orientation of Nao's joint (-> angle = 0 <=> arm pointing forward)
-        shoulder_angle = -math.pi/2 + math.asin(y/math.sqrt(x*x + y*y)) - math.asin(l2 *
-                                                math.sin(elbow_angle)/math.sqrt(x*x + y*y))
-    
-
-    return clamp(shoulder_angle, NAO_RSHOULDER_ANGLE_LIMITS),clamp(elbow_angle,NAO_RELBOW_ANGLE_LIMITS)
-
-
+    target = [pose.pose.position.x,pose.pose.position.y,pose.pose.position.z]
+    trackerProxy.lookAt(target, 0, .1, False)
 
 def point_at(targetpose):
-    angles = arm_ik(targetpose)
-
-    if angles is None:
+    reference_frame = "torso"
+    try:
+        targetpose.header.stamp = tl.getLatestCommonTime(targetpose.header.frame_id,reference_frame)
+        pose = tl.transformPose(reference_frame, targetpose)
+    except:
         return
 
-    names  = ["RShoulderRoll",
-              "RElbowRoll"]
-    rospy.logdebug("Moving shoulder, elbow: %s" % str([angles[0]/TO_RAD, angles[1]/TO_RAD]))
-    fractionMaxSpeed  = 0.3
-    motionProxy.angleInterpolationWithSpeed(names, angles, fractionMaxSpeed)
+    target = [pose.pose.position.x,pose.pose.position.y,pose.pose.position.z]
+    trackerProxy.pointAt(effector, target, 0, .1)
     pub_event.publish(String("pointing_finished"))
 
 def set_pointing_posture():
@@ -280,6 +195,7 @@ if __name__ == "__main__":
     memoryProxy = ALProxy("ALMemory", NAO_IP, port);
     ttsProxy = ALProxy("ALTextToSpeech", NAO_IP, port);
     postureProxy = ALProxy("ALRobotPosture", NAO_IP, port)
+    trackerProxy = ALProxy("ALTracker", NAO_IP, port)
     #fallResponder = FallResponder("fallResponder",motionProxy,memoryProxy);
     
     motionProxy.wbEnableEffectorControl(effector,False); #if robot has fallen it will have a hard time getting up if the effector is still trying to be kept in a particular position
