@@ -139,9 +139,9 @@ class StateAnalyser(object):
         self._trigger_state_pub.publish(message)
 
     def get_pose(self, item, reference=REFERENCE_FRAME):
-        if item not in self._tl.getFrameStrings():
-            rospy.logwarn_throttle(20,"%s is not yet published." % item)
-            return None
+       # if item not in self._tl.getFrameStrings():
+       #     rospy.logwarn_throttle(20,"%s is not yet published." % item)
+       #     return None
         if self._tl.canTransform(reference, item, rospy.Time(0)):
             (trans,rot) = self._tl.lookupTransform(reference, item, rospy.Time(0))
             return trans
