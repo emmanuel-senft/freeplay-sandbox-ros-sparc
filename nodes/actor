@@ -95,21 +95,23 @@ class Actor(object):
         indexes = np.zeros(len(self._actions),dtype=int)
         for i, action in enumerate(self._actions):
             print action._action
-            reward = 0
-            index = 0
-            max_similarity = 0
-            for idx, state in enumerate(action._states):
-                print idx
-                print "state " + str(state)
-                print "reward " + str(action._rewards[idx])
-                print "similarity " + str(self.get_similarity_states(state, self._state))
-                similarity = self.get_similarity_states(state, self._state)
-                if (similarity > max_similarity):
-                    max_similarity = similarity
-                    reward = action._rewards[idx]
-                    index = idx
+            similarity = 1-np.divide(np.sum((action._states-self._state)*(action._states-self._state),axis=1),np.sum(~action._states.mask,axis=1))
+            max_similarity = max(similarity)
+            idx = np.argmax(similarity)
+            reward = action._rewards[idx]
+#            for idx, state in enumerate(action._states):
+#                print idx
+#                print "state " + str(state)
+#                print "reward " + str(action._rewards[idx])
+#                print "similarity " + str(self.get_similarity_states(state, self._state))
+#                similarity = self.get_similarity_states(state, self._state)
+#                if (similarity > max_similarity):
+#                    max_similarity = similarity
+#                    reward = action._rewards[idx]
+#                    index = idx
+            
             weighted_rewards[i] = reward * max_similarity
-            indexes[i] = index
+            indexes[i] = idx
         print "rewards"
         print weighted_rewards
         if max(weighted_rewards)<=0:
@@ -181,7 +183,8 @@ class Actor(object):
     def add_point(self, action, state, reward):
         for known_action in self._actions:
             if known_action._action == action:
-                known_action._states.append(state)
+                reshaped_state=ma.reshape(state, (1,state.shape[0]))
+                known_action._states=ma.append(known_action._states,reshaped_state,axis=0)
                 known_action._rewards.append(reward)
                 break
         else:
@@ -191,7 +194,7 @@ class Actor(object):
 class Action(object):
     def __init__(self, act, state, reward):
         self._action = act
-        self._states = [state]
+        self._states = ma.reshape(state,(1,state.shape[0]))
         self._rewards = [reward]
 
 if __name__ == "__main__":
