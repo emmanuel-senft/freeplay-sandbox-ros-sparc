@@ -9,7 +9,7 @@ from copy import deepcopy
 from naoqi import ALModule, ALBroker, ALProxy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path
-from std_msgs.msg import String
+from std_msgs.msg import String, Empty
 import rospy
 import tf
 import motion
@@ -119,6 +119,9 @@ def waiting():
     	       [1.0]]
     isAbsolute  = True
 #    motionProxy.angleInterpolation(names, angleLists, timeLists, isAbsolute) #blocking!
+def on_blink(message):
+    ledProxy.fade("FaceLeds",0,.1)
+    ledProxy.fade("FaceLeds",1,.1)
 
 def on_event(message):
     global is_waiting
@@ -192,6 +195,7 @@ if __name__ == "__main__":
     sub_blocking_speech = rospy.Subscriber("/nao/blocking_speech", String, on_blocking_speech, queue_size=5)
     pub_event = rospy.Publisher("/nao/events", String, queue_size=5)
     sub_event = rospy.Subscriber("/nao/events", String, on_event)
+    sub_blink = rospy.Subscriber("/nao/blink", Empty, on_blink)
 
     # We need this broker to be able to construct
     # NAOqi modules and subscribe to other modules
@@ -211,6 +215,8 @@ if __name__ == "__main__":
     postureProxy = ALProxy("ALRobotPosture", NAO_IP, port)
     trackerProxy = ALProxy("ALTracker", NAO_IP, port)
     trackerProxy.registerTarget("Face",.2)
+    ledProxy = ALProxy("ALLeds", NAO_IP, port)
+
     #fallResponder = FallResponder("fallResponder",motionProxy,memoryProxy);
     
     motionProxy.wbEnableEffectorControl(effector,False); #if robot has fallen it will have a hard time getting up if the effector is still trying to be kept in a particular position
