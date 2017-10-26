@@ -1,0 +1,15 @@
+<launch>
+    <arg name="nao_ip"              default="$(optenv NAO_IP 127.0.0.1)" doc="If using a robot, Nao's IP" />
+    <arg name="nao_port"            default="$(optenv NAO_PORT 9559)" doc="If using a robot, Nao's port" />
+
+    <arg name="roscore_ip"          default="127.0.0.1" />
+    <arg name="network_interface"   default="wlp2s0" doc="Network interface used to communicate with the robot" />
+
+    <!-- naoqi driver -->
+    <include file="$(find naoqi_driver)/launch/naoqi_driver.launch" >
+        <arg name="nao_ip"            value="$(arg nao_ip)" />
+        <arg name="nao_port"          value="$(arg nao_port)" />
+        <arg name="roscore_ip"        value="$(arg roscore_ip)" />
+        <arg name="network_interface" value="$(arg network_interface)" />
+    </include>
+</launch>

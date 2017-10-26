@@ -1,0 +1,5 @@
+<launch>
+    <node pkg="freeplay_sparc" type="sandtray_localisation" name="sandtray_localisation" output="screen">
+        <remap from="/image" to="/naoqi_driver_node/camera/front/image_raw" />
+    </node>
+</launch>
