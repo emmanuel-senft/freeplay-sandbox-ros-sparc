@@ -159,18 +159,9 @@ class ActionAnalyser(object):
          return self._state_analyser.get_point_action(masked_action)
 
     def on_cancelled_action(self, message):
-        items = message.header.frame_id
-        closest = self._state_analyser.get_state_pose(item, message)
-        item_id = ITEMS.index(item)
-        strings = message.strings+[item]
-        mask = self.get_mask(strings)
-        action_mask = [True, True]
-        action = "moveto_"+LOCATIONS[closest]
-        action = [ACTION_TYPES.index(action), item_id]
+        self.on_selected_action(message, -1)
 
-        self.cancel_action(action, mask)
-
-    def on_selected_action(self, message):
+    def on_selected_action(self, message, reward = 1):
         print "action selected"
         if len(self._actions) == 0:
             if not self.init_actions():
@@ -185,7 +176,7 @@ class ActionAnalyser(object):
             action = ACTION_ATTENTION+"_"+message.header.frame_id
         action = self._actions.index(action)
 
-        self.publish_action(action, mask, trigger_mask, 1)
+        self.publish_action(action, mask, trigger_mask, reward)
 
         if DEBUG:
             print mask
