@@ -311,6 +311,8 @@ class StateAnalyser(object):
         return transit_point
 
     def test_point(self, point):
+        if np.any(point<0):
+            return False
         try:
             return not self._map[point[0], point[1]]
         except IndexError:
