@@ -97,7 +97,7 @@ class Actor(object):
             print action._action
             similarity = 1-np.divide(np.sum((action._states-self._state)*(action._states-self._state),axis=1),np.sum(~action._states.mask,axis=1))
             max_similarity = max(similarity)
-            idx = np.argmax(similarity)
+            idx = len(similarity) - 1 - np.argmax(similarity[::-1])
             reward = action._rewards[idx]
 #            for idx, state in enumerate(action._states):
 #                print idx
