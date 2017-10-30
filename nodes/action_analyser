@@ -169,11 +169,13 @@ class ActionAnalyser(object):
         item = message.header.frame_id
         mask = self.get_mask(message.strings)
         trigger_mask = self.get_trigger_mask(message.strings)
-        action = 0 
+
+        action = message.type 
         if message.type == "move":
             action = self.get_action_move(item, message, message.strings)
-        if message.type == ACTION_ATTENTION:
+        elif message.type == ACTION_ATTENTION:
             action = ACTION_ATTENTION+"_"+message.header.frame_id
+            
         action = self._actions.index(action)
 
         self.publish_action(action, mask, trigger_mask, reward)
