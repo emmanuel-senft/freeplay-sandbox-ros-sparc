@@ -196,11 +196,10 @@ class ActionAnalyser(object):
                 self._actions.append(ACTION_MOVE_CLOSE+"_"+c+"_"+o)
             for o in self._state_analyser._characters + self._state_analyser._targets:
                 self._actions.append(ACTION_MOVE_AWAY+"_"+c+"_"+o)
-            self._actions.append(ACTION_FELICITATION)
-            self._actions.append(ACTION_ENCOURAGEMENT)
-            self._actions.append(ACTION_RULES)
-        else:
-            return True
+        self._actions.append(ACTION_FELICITATION)
+        self._actions.append(ACTION_ENCOURAGEMENT)
+        self._actions.append(ACTION_RULES)
+        return True
 
     def get_action_move(self, item, pose, strings):
         goal = self._state_analyser.get_absolute_pose(pose)
