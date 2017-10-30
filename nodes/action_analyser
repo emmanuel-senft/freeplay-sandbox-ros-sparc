@@ -172,29 +172,18 @@ class ActionAnalyser(object):
 
     def on_selected_action(self, message):
         print "action selected"
-        print len(self._actions)
         if len(self._actions) == 0:
             if not self.init_actions():
                 return 
-        print len(self._actions)
         item = message.header.frame_id
         mask = self.get_mask(message.strings)
-        #print mask
-        #print len(mask)
-        #print len(self._state_analyser._state)
-        #print len(self._state_analyser._state_label)
-        #print [self._state_analyser._state_label[i] for i in range(len(mask)) if mask[i]]
         trigger_mask = self.get_trigger_mask(message.strings)
-        #print self._state_analyser._trigger_state_label
-        #print [self._state_analyser._trigger_state_label[i] for i,v in enumerate(trigger_mask) if v]
         action = 0 
         if message.type == "move":
             action = self.get_action_move(item, message, message.strings)
         if message.type == ACTION_ATTENTION:
             action = ACTION_ATTENTION+"_"+message.header.frame_id
-        #print action
         action = self._actions.index(action)
-        #print action
 
         self.publish_action(action, mask, trigger_mask, 1)
 
