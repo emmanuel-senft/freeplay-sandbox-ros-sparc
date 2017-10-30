@@ -50,7 +50,7 @@ def look_at(targetpose):
     pose = tl.transformPose(reference_frame, targetpose)
 
     target = [pose.pose.position.x,pose.pose.position.y,pose.pose.position.z]
-    trackerProxy.lookAt(target, 0, .1, False)
+    trackerProxy.lookAt(target, 0, .3, False)
 
 def point_at(targetpose):
     global is_waiting
@@ -63,7 +63,7 @@ def point_at(targetpose):
         return
 
     target = [pose.pose.position.x,pose.pose.position.y,pose.pose.position.z]
-    trackerProxy.pointAt(effector, target, 0, .1)
+    trackerProxy.pointAt(effector, target, 0, .3)
     pub_event.publish(String("pointing_finished"))
 
 def set_pointing_posture():
