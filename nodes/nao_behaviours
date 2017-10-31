@@ -162,7 +162,7 @@ def on_pose(pose):
 
 def on_blocking_speech(sentence):
     ttsProxy.say(sentence.data)
-    pub_event.publish(String("blocking_speech_finished-"+sentence))
+    pub_event.publish(String("blocking_speech_finished-"+sentence.data))
 
 class FallResponder(ALModule):
   """ Module to react to robotHasFallen events """
