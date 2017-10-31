@@ -109,8 +109,12 @@ def arm_to_rest_posture():
     robot_ready_to_point = False
 
 def waiting():
-    trackerProxy.lookAt([1,0,.2], 0, .1,False)
+    postureProxy.goToPosture("Stand", 0.5)
+    motionProxy.setBreathEnabled("Body",True)
+    #trackerProxy.lookAt([1,0,.2], 0, .1,False)
     trackerProxy.track("Face")
+    ledProxy.fadeRGB("FaceLeds",1,1,1,.1)
+    return
     names  = ["RShoulderRoll",
               "RElbowRoll"]
     angleLists  = [[-random.randint(30,40) * TO_RAD],
@@ -216,6 +220,7 @@ if __name__ == "__main__":
     trackerProxy = ALProxy("ALTracker", NAO_IP, port)
     trackerProxy.registerTarget("Face",.2)
     ledProxy = ALProxy("ALLeds", NAO_IP, port)
+    ledProxy.fadeRGB("FaceLeds",1,1,1,.1)
 
     #fallResponder = FallResponder("fallResponder",motionProxy,memoryProxy);
     
