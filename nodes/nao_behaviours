@@ -90,7 +90,7 @@ def set_pointing_posture():
 
     robot_ready_to_point = True
 
-def arm_to_rest_posture():
+def relax():
     global robot_ready_to_point
 
     if robot_ready_to_point:
