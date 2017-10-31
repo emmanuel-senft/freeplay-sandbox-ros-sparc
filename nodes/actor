@@ -94,8 +94,11 @@ class Actor(object):
         weighted_rewards = np.zeros(len(self._actions))
         indexes = np.zeros(len(self._actions),dtype=int)
         for i, action in enumerate(self._actions):
-            print action._action
-            similarity = 1-np.divide(np.sum((action._states-self._state)*(action._states-self._state),axis=1),np.sum(~action._states.mask,axis=1))
+            #Prepare case only False, no vector
+            if len(action._states.mask.shape) == 0:
+                similarity = 1-np.divide(np.sum((action._states-self._state)*(action._states-self._state),axis=1),len(self._state))
+            else:
+                similarity = 1-np.divide(np.sum((action._states-self._state)*(action._states-self._state),axis=1),np.sum(~action._states.mask,axis=1))
             max_similarity = max(similarity)
             idx = len(similarity) - 1 - np.argmax(similarity[::-1])
             reward = action._rewards[idx]
@@ -125,7 +128,11 @@ class Actor(object):
         print "indexes"
         print indexes[index_selected_action]
 
-        mask = ~self._actions[index_selected_action]._states[indexes[index_selected_action]].mask
+
+        if len(self._actions[index_selected_action]._states[indexes[index_selected_action]].mask.shape) == 0:
+            mask = ~np.full(self._state.shape,self._actions[index_selected_action]._states[indexes[index_selected_action]].mask, dtype=bool)
+        else:
+            mask = ~self._actions[index_selected_action]._states[indexes[index_selected_action]].mask
 
         message = DiscreteAction()
         message.header.frame_id = "sandtray"
