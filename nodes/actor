@@ -45,12 +45,6 @@ class Actor(object):
 
     def on_trigger_state(self, message):
         self._trigger_state = np.array(message.data)
-#        print self._trigger_state
-        if self._trigger_state[-3]%4 == 0:
-            self.select_action()
-
-        #if self._trigger_state[-3]%4 == 0:
-        #    self.select_action()
 
     def on_event(self, message):
         if message.data == "select":
@@ -102,31 +96,13 @@ class Actor(object):
             max_similarity = max(similarity)
             idx = len(similarity) - 1 - np.argmax(similarity[::-1])
             reward = action._rewards[idx]
-#            for idx, state in enumerate(action._states):
-#                print idx
-#                print "state " + str(state)
-#                print "reward " + str(action._rewards[idx])
-#                print "similarity " + str(self.get_similarity_states(state, self._state))
-#                similarity = self.get_similarity_states(state, self._state)
-#                if (similarity > max_similarity):
-#                    max_similarity = similarity
-#                    reward = action._rewards[idx]
-#                    index = idx
-            
             weighted_rewards[i] = reward * max_similarity
             indexes[i] = idx
-        print "rewards"
-        print weighted_rewards
         if max(weighted_rewards)<=0:
             print "no good candidate"
             return
         index_selected_action = np.argmax(weighted_rewards)
         proposed_action = self._actions[index_selected_action]
-
-        print "index"
-        print index_selected_action
-        print "indexes"
-        print indexes[index_selected_action]
 
 
         if len(self._actions[index_selected_action]._states[indexes[index_selected_action]].mask.shape) == 0:
@@ -138,15 +114,9 @@ class Actor(object):
         message.header.frame_id = "sandtray"
         message.header.stamp = rospy.Time(0)
         message.action_id = self._actions[index_selected_action]._action
-#        for i in action.mask:
-#            message.maskAction.append(bool(not i))
         message.state_mask=mask
 
         self._action_pub.publish(message)
-#        self._has_moved = True
-#        self._moving_Timer.start()
-
-#        self._reaction_timer = threading.Timer(2, self.select_action)
 
     def reset_has_moved(self):
         self._has_moved = False
@@ -172,7 +142,7 @@ class Actor(object):
             data.append(action)
         with open('/home/senft/data.json','w') as outfile:
             json.dump(data, outfile)
-#
+
     def load_json(self):
         with open('/home/senft/data.json','r') as infile:
             data=json.load(infile)
@@ -182,7 +152,6 @@ class Actor(object):
                 for p in points:
                     m = (p["s"] == np.array(None))
                     d = np.where(p["s"] == np.array(None),0,p["s"])
-                    print d
                     s=ma.array(d, mask=m)
                     self.add_point(id, s, p["r"])
                 
