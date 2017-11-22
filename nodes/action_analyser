@@ -77,12 +77,12 @@ class ActionAnalyser(object):
             print message.maskAction
         state_mask = message.state_mask
         action_id = message.action_id
-        action_str = self._actions[action_id]
-        action_str = action_str.split("_")
-        print action_str
+        action_string = self._actions[action_id]
+        action_strings = action_string.split("_")
+        print action_strings
 
         #Identify if action doable (if life of all items>0)
-        for str in action_str:
+        for str in action_strings:
             try:
                 index=self._state_analyser._state_label.index("l_"+str)
             except ValueError:
@@ -108,34 +108,34 @@ class ActionAnalyser(object):
                     if i>0 and s not in message_out.strings:
                         message_out.strings.append(s) 
 
-        if len(action_str)>1:
-            message_out.header.frame_id = action_str[1]
+        if len(action_strings)>1:
+            message_out.header.frame_id = action_strings[1]
         else:
             message_out.header.frame_id = "sandtray"
         message_out.header.stamp = rospy.Time(0)
             
-        if action_str[0].startswith("mv"):
+        if action_strings[0].startswith("mv"):
             goal = None
-            if action_str[1] in self._state_analyser._characters and (action_str[2] in self._state_analyser._characters or action_str[2] in self._state_analyser._targets):
-                if action_str[0] == ACTION_MOVE_TO:
-                    goal = self._state_analyser.get_pose_around(action_str[2])
-                if action_str[0] == ACTION_MOVE_CLOSE:
-                    goal = self._state_analyser.get_pose_close_to(action_str[1], action_str[2])
-                if action_str[0] == ACTION_MOVE_AWAY:
-                    goal = self._state_analyser.get_point_away(action_str[1], action_str[2])
+            if action_strings[1] in self._state_analyser._characters and (action_strings[2] in self._state_analyser._characters or action_strings[2] in self._state_analyser._targets):
+                if action_strings[0] == ACTION_MOVE_TO:
+                    goal = self._state_analyser.get_pose_around(action_strings[2])
+                if action_strings[0] == ACTION_MOVE_CLOSE:
+                    goal = self._state_analyser.get_pose_close_to(action_strings[1], action_strings[2])
+                if action_strings[0] == ACTION_MOVE_AWAY:
+                    goal = self._state_analyser.get_point_away(action_strings[1], action_strings[2])
                 if goal == None:
                     print "error"
                     return
             else:
                 return
-            if action_str[2] not in message_out.strings:
-                message_out.strings.append(action_str[2])
+            if action_strings[2] not in message_out.strings:
+                message_out.strings.append(action_strings[2])
 
             print "origin "
-            print self._state_analyser.get_pose(action_str[1])
+            print self._state_analyser.get_pose(action_strings[1])
             print "destination "
             print goal
-            goal = self._state_analyser.get_relative_pose(action_str[1],goal)
+            goal = self._state_analyser.get_relative_pose(action_strings[1],goal)
             goal = goal.pose.position
             print "delta " 
             print goal
@@ -149,9 +149,9 @@ class ActionAnalyser(object):
             message_out.pose.orientation.w = 1.
             message_out.type = action_string 
             self._proposed_action_pub.publish(message_out)
-        if (action_str[0] == ACTION_ATTENTION or action_str[0] == ACTION_FELICITATION or 
-            action_str[0] == ACTION_ENCOURAGEMENT or action_str[0] == ACTION_RULES):
-            message_out.type = action_str[0]
+        if (action_strings[0] == ACTION_ATTENTION or action_strings[0] == ACTION_FELICITATION or 
+            action_strings[0] == ACTION_ENCOURAGEMENT or action_strings[0] == ACTION_RULES):
+            message_out.type = action_strings[0]
             self._proposed_action_pub.publish(message_out)
 
     def get_target(self, action, mask):
