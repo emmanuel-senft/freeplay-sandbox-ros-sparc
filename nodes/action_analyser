@@ -23,8 +23,8 @@ DEBUG = False
 
 REFERENCE_FRAME="/sandtray"
 ACTION_ATTENTION = "att"
-ACTION_ENCOURAGEMENT = "enc"
-ACTION_FELICITATION = "fel"
+ACTION_ENCOURAGEMENT = "encour"
+ACTION_FELICITATION = "congrats"
 ACTION_RULES = "rul"
 ACTION_MOVE_TO = "mvt"
 ACTION_MOVE_CLOSE = "mvc"
@@ -147,7 +147,7 @@ class ActionAnalyser(object):
             message_out.pose.orientation.y = 0
             message_out.pose.orientation.z = 0
             message_out.pose.orientation.w = 1.
-            message_out.type = "move"
+            message_out.type = action_string 
             self._proposed_action_pub.publish(message_out)
         if (action_str[0] == ACTION_ATTENTION or action_str[0] == ACTION_FELICITATION or 
             action_str[0] == ACTION_ENCOURAGEMENT or action_str[0] == ACTION_RULES):
@@ -171,7 +171,7 @@ class ActionAnalyser(object):
         trigger_mask = self.get_trigger_mask(message.strings)
 
         action = message.type 
-        if message.type == "move":
+        if message.type == "mv":
             action = self.get_action_move(item, message, message.strings)
         elif message.type == ACTION_ATTENTION:
             action = ACTION_ATTENTION+"_"+message.header.frame_id
