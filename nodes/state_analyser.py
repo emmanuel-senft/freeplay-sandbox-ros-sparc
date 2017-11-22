@@ -39,7 +39,8 @@ class StateAnalyser(object):
         self._tl = tf.TransformListener()
         rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
 
-        self._event_sub = rospy.Subscriber("sandtray/interaction_events", String, self.on_event)
+        self._interaction_event_sub = rospy.Subscriber("sandtray/interaction_events", String, self.on_interaction_event)
+        self._nao_event_sub = rospy.Subscriber("nao/events", String, self.on_nao_event)
         self._life_sub = rospy.Subscriber("sparc/life", ListFloatStamped, self.on_life)
         self._map_sub = rospy.Subscriber("map", OccupancyGrid, self.on_map)
         self._gaze_sub = rospy.Subscriber("gazepose_0", PoseStamped, self.on_gaze)
@@ -58,9 +59,13 @@ class StateAnalyser(object):
         self._targets = []
         self._initialised = False
         self._life = []
-        self._steps_no_touch = 0
         self._eye_pose = (0,0)
         self._progression = 0
+        self._step = 0
+        self._step_last_action_child = 0
+        self._step_last_action_robot = 0
+        self._step_last_feeding = 0
+        self._step_last_death = 0
 
         self._game_running = False
 
@@ -68,6 +73,7 @@ class StateAnalyser(object):
         self._xmin = 0
         self._current_touches = 0
         self._robot_touch = False
+        self._robot_speaks = False
 
         self._map = None
 
@@ -79,11 +85,13 @@ class StateAnalyser(object):
         if not self._initialised or len(self._life) == 0:
             self._event_pub.publish(String("analyser_ready"))
             return
+
         if self._stopping or not self._game_running:
             return
         self._timer = Timer(0.5, self.get_state)
         self._timer.start()
         
+        self._step += 1
         index = 0
         for idx, character in enumerate(self._characters):
             for other in (self._characters+self._targets)[idx+1:]:
@@ -98,21 +106,33 @@ class StateAnalyser(object):
         self._state[index] = self._progression
         index+=1
 
-        self._trigger_state[0:len(self._characters)]=np.array(self._life[0:len(self._characters)])
+        if self._current_touches > 0:
+            self._state[index] = 1
+        else:
+            self._state[index] = np.exp((self._step_last_action_child - self._step)/10.)
+        index+=1
+        if self._robot_speaks or self._robot_touch:
+            self._state[index] = 1
+        else:
+            self._state[index] = np.exp((self._step_last_action_robot - self._step)/10.)
+        index+=1
+        self._state[index] = np.exp((self._step_last_feeding - self._step)/10.)
+        index+=1
+        self._state[index] = np.exp((self._step_last_death - self._step)/10.)
 
+        #Trigger state
+        self._trigger_state[0:len(self._characters)]=np.array(self._life[0:len(self._characters)])
         #print "child touch" 
         #print self._current_touches
         #print "robot touch" 
         #print self._robot_touch
 
-        if self._current_touches == 0 and self._robot_touch == 0:
-            self._steps_no_touch += 1
-        else:
-            self._steps_no_touch = 0
+        self._trigger_state[-4]=self._state[-4]
+        self._trigger_state[-3]=self._state[-3]
+        self._trigger_state[-2]=self._state[-2]
+        self._trigger_state[-1]=self._state[-1]
 
-        self._trigger_state[-3]=self._steps_no_touch
-        self._trigger_state[-2]=self._robot_touch
-        self._trigger_state[-1]=(self._current_touches > 0)
+        print self._trigger_state
 
         self.publish_states()
 
@@ -148,9 +168,9 @@ class StateAnalyser(object):
     def run(self):
         rospy.spin()
 
-    def on_event(self, event):
+    def on_interaction_event(self, event):
         arguments = event.data.split("_")
-        if arguments[0] == "start":
+        if arguments[0] == "start" or arguments[0] == "running":
             self._game_running = True
             self._progression = float(arguments[1])/float(arguments[2])
             self.get_state()
@@ -158,8 +178,11 @@ class StateAnalyser(object):
             self._game_running = False
         elif arguments[0] == "childrelease":
             self._current_touches -= 1
+            if self._current_touches == 0:
+                self._step_last_action_child = self._step
         elif  arguments[0] == "robotrelease":
             self._robot_touch = False
+            self._step_last_action_robot = self._step
         elif  arguments[0] == "childtouch": 
             self._current_touches += 1
         elif  arguments[0] == "robottouch":
@@ -170,9 +193,22 @@ class StateAnalyser(object):
         elif arguments[0] == "targets" and len(self._targets) == 0:
             for i in range(1,len(arguments)):
                 self._targets.append(arguments[i].split(",")[0])
+        elif arguments[0] == "animaleats":
+            self._step_last_feeding = self._step
+        elif arguments[0] == "animaldead":
+            self._step_last_death = self._step
 
         if len(self._characters) > 0 and len(self._targets) > 0 and not self._initialised:
             self.init_label()
+
+    def on_nao_event(self, message):
+        arguments = message.data.split("-")
+        if arguments[0] == "blocking_speech_finished":
+            self._step_last_action_robot = self._step
+            self._robot_speaks = False
+        if arguments[0] == "blocking_speech_started":
+            self._robot_speaks = True
+
 
     def init_label(self):
         for idx, character in enumerate(self._characters):
@@ -183,14 +219,20 @@ class StateAnalyser(object):
         for v in (self._characters  + self._targets):
             self._state_label.append("g_"+v)
         #progression, round number
-        self._state_label.append("g_p")
+        self._state_label.append("g_progress")
+        self._state_label.append("last_child_action")
+        self._state_label.append("last_robot_action")
+        self._state_label.append("last_feeding")
+        self._state_label.append("last_death")
+
         print len(self._state_label)
         
         for c in self._characters:
             self._trigger_state_label.append("l_"+c)
-        self._trigger_state_label.append("step_no_touch")
-        self._trigger_state_label.append("robot_touch")
-        self._trigger_state_label.append("child_touch")
+        self._trigger_state_label.append("last_child_action")
+        self._trigger_state_label.append("last_robot_action")
+        self._trigger_state_label.append("last_feeding")
+        self._trigger_state_label.append("last_death")
 
         self._state = np.zeros(len(self._state_label))
         self._trigger_state = np.zeros(len(self._trigger_state_label))
