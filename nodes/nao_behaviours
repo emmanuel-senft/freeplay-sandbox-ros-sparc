@@ -161,6 +161,7 @@ def on_pose(pose):
         rospy.loginfo("Got pose to look at, but I've fallen!");
 
 def on_blocking_speech(sentence):
+    pub_event.publish(String("blocking_speech_started-"+sentence.data))
     ttsProxy.say(sentence.data)
     pub_event.publish(String("blocking_speech_finished-"+sentence.data))
 
