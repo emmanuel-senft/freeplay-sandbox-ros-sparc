@@ -73,19 +73,17 @@ class StateAnalyser(object):
 
         rospy.loginfo("Ready to play!")
         self._timer = Timer(0.5, self.get_state)
-        
-        self.get_state()
+        self._timer.start()
 
     def get_state(self):
+        if not self._initialised or len(self._life) == 0:
+            self._event_pub.publish(String("analyser_ready"))
+            return
         if self._stopping or not self._game_running:
             return
         self._timer = Timer(0.5, self.get_state)
         self._timer.start()
         
-        if not self._initialised or len(self._life) == 0:
-            self._event_pub.publish(String("analyser_ready"))
-            return
-
         index = 0
         for idx, character in enumerate(self._characters):
             for other in (self._characters+self._targets)[idx+1:]:
