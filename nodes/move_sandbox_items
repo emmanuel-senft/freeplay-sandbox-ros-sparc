@@ -54,6 +54,7 @@ class PlaygroundTrajTrackerAction(object):
         self._action_name = name
         self._as = actionlib.SimpleActionServer(self._action_name, freeplay_sandbox_msgs.msg.PlaygroundNavigationAction, execute_cb=self.execute_cb, auto_start = False)
         self._as.start()
+        self._pub_backchannel = rospy.Publisher("nao/backchannel/standard", String, queue_size = 1)
 
     def execute_cb(self, goal):
         # helper variables
@@ -102,6 +103,7 @@ class PlaygroundTrajTrackerAction(object):
         #wait for robot to get to starting point
         rospy.sleep(requested_traj.poses[0].header.stamp.to_sec()); 
 
+		self._pub_backchannel.publish(String("start"))
 
         rospy.loginfo("Starting to play trajectory!")
 
@@ -118,7 +120,7 @@ class PlaygroundTrajTrackerAction(object):
                 rospy.loginfo('%s: Preempted' % self._action_name)
                 self._as.set_preempted()
                 success = False
-                break
+                return False
             # publish the feedback
             self._feedback.percentage = i*100./len(requested_traj.poses)
             rospy.loginfo("Done %i%%" % self._feedback.percentage)
@@ -135,6 +137,8 @@ class PlaygroundTrajTrackerAction(object):
         pub_poses.publish(requested_traj.poses[len(requested_traj.poses)-1])
         written_points.append(p)
         visualize_traj(written_points)
+
+		self._pub_backchannel.publish(String("finish"))
 
         return True
 

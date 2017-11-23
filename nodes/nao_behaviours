@@ -219,6 +219,16 @@ def on_pose(pose):
 
     else:
         rospy.loginfo("Got pose to look at, but I've fallen!");
+        
+def on_backchannel(message):
+	pub_speech = rospy.Publisher("/speech", String, queue_size=5)
+	randNum = random.randint(1,5)
+	if message.data == "start"
+		msg = random.choice(["Ok","Sure","Umm?","Right","Yeah?"])
+	else
+		msg = random.choice(["Here?","Yes?","Here I think","There?","Ok?"])
+	
+	pub_speech.publish(String(msg))
 
 class FallResponder(ALModule):
   """ Module to react to robotHasFallen events """
@@ -250,8 +260,7 @@ if __name__ == "__main__":
         rospy.logerr('error in handedness param')
 
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
-
-
+    sub_backchannel = rospy.Subscriber("nao/backchannel/standard"), String, on_backchannel)
 
     # We need this broker to be able to construct
     # NAOqi modules and subscribe to other modules
