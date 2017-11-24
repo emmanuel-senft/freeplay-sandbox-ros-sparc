@@ -44,7 +44,7 @@ class Player(object):
         rospy.spin()
 
     def on_action_received(self,action):
-        if action.type == "move":
+        if action.type.startswith("mv"):
             item = action.header.frame_id
 
             if self._moving_item is not None:
@@ -74,10 +74,10 @@ class Player(object):
             self._poses_pub.publish(message)
             self._waiting_pointing=action.type
 
-        if action.type == "fel":
+        if action.type == "congrats":
             self.say_blocked("Well done", action.type)
 
-        if action.type == "enc":
+        if action.type == "encour":
             self.say_blocked("Keep going, you can do it", action.type)
 
         if action.type == "rul":
