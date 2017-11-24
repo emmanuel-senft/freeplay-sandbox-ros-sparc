@@ -42,6 +42,7 @@ class ActionAnalyser(object):
         self._rewarded_action_pub = rospy.Publisher("sparc/rewarded_action_dis", DiscreteAction, queue_size = 5)
 
         self._proposed_action_pub = rospy.Publisher("sparc/proposed_action", ContinuousAction, queue_size = 5)
+        self._action_description_pub = rospy.Publisher("sparc/action_description", String, queue_size = 5)
 
         self._state_analyser = StateAnalyser()
         self._proposing_action = False
@@ -174,6 +175,7 @@ class ActionAnalyser(object):
         action = message.type 
         if message.type == "mv":
             action = self.get_action_move(item, message, message.strings)
+            self._action_description_pub.publish(String(action))
         elif message.type == ACTION_ATTENTION:
             action = ACTION_ATTENTION+"_"+message.header.frame_id
             

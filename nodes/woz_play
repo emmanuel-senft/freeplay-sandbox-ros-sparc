@@ -24,9 +24,9 @@ class Player(object):
         rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
 
         self._action_sub = rospy.Subscriber("sparc/selected_action", freeplay_sandbox_msgs.msg.ContinuousAction, self.on_action_received)
+        self._description_sub = rospy.Subscriber("sparc/action_description", String, self._on_description)
         self._event_sub = rospy.Subscriber("sandtray/interaction_events", String, self.on_event)
         self._nao_event_sub = rospy.Subscriber("nao/events", String, self.on_nao_event)
-
         self._motion = actionlib.SimpleActionClient('move_sandbox_items', freeplay_sandbox_msgs.msg.PlaygroundNavigationAction)
         self._speech_pub = rospy.Publisher("speech", String, queue_size = 5)
         self._blocking_speech_pub = rospy.Publisher("nao/blocking_speech", String, queue_size = 5)
@@ -67,7 +67,7 @@ class Player(object):
 
         if action.type == "att":
             item = action.header.frame_id
-            self._speech_pub.publish(String("Look at the "+item.split("-")[0]))
+            self._blocking_speech_pub.publish(String("Look at the "+item.split("-")[0]))
             message = PoseStamped()
             message.header.frame_id = item
             message.header.stamp = rospy.Time.now()
@@ -82,6 +82,19 @@ class Player(object):
 
         if action.type == "rul":
             self.say_blocked("Remember, you have to feed the animals to keep them alive", action.type)
+
+    #To add description to a move
+    def _on_description(self, message):
+        lst = message.data.split("_")
+        str = "Let's move the " + lst[1]
+        if lst[0] == "mvt":
+            str = str + " to"
+        if lst[0] == "mvc":
+            str = str + " close to"
+        if lst[0] == "mva":
+            str = str + " away from"
+        str = str + " the " + lst[2].split("-")[0]
+        self._blocking_speech_pub.publish(String(str))
 
     def say_blocked(self, msg, action):
         self._blocking_speech_pub.publish(String(msg))
