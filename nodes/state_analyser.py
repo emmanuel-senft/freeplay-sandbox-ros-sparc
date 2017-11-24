@@ -64,6 +64,11 @@ class StateAnalyser(object):
         self._step_last_feeding = 0
         self._step_last_death = 0
 
+        self._characters_touched_child = []
+        self._characters_touched_robot = []
+        self._step_last_characters_touched_child = []
+        self._step_last_characters_touched_robot = []
+
         self._game_running = False
 
         self._xmax = 0
@@ -94,10 +99,25 @@ class StateAnalyser(object):
             for other in (self._characters+self._targets)[idx+1:]:
                 self._state[index]=self.get_distance_objects(character,other)/DIAGONAL
                 index+=1
+        #Last time a character is touched by the child
+        for idx,character in enumerate(self._characters):
+            if self._characters_touched_child[idx]:
+                self._state[index] = 1
+            else:
+                self._state[index] = self.get_decay(self._step_last_characters_touched_child[idx],10.)
+            index+=1
+        #Last time a character is touched by the robot
+        for idx,character in enumerate(self._characters):
+            if self._characters_touched_robot[idx]:
+                self._state[index] = 1
+            else:
+                self._state[index] = self.get_decay(self._step_last_characters_touched_robot[idx],10.)
+            index+=1
 
         self._state[index] = self._progression
         index+=1
 
+        #Starts trigger state
         for value in self._life:
             self._state[index] = value
             index+=1
@@ -105,16 +125,16 @@ class StateAnalyser(object):
         if self._current_touches > 0:
             self._state[index] = 1
         else:
-            self._state[index] = np.exp((self._step_last_action_child - self._step)/10.)
+            self._state[index] = self.get_decay(self._step_last_action_child,10.)
         index+=1
         if self._robot_speaks or self._robot_touch:
             self._state[index] = 1
         else:
-            self._state[index] = np.exp((self._step_last_action_robot - self._step)/10.)
+            self._state[index] = self.get_decay(self._step_last_action_robot,10.)
         index+=1
-        self._state[index] = np.exp((self._step_last_feeding - self._step)/10.)
+        self._state[index] = self.get_decay(self._step_last_feeding,10.)
         index+=1
-        self._state[index] = np.exp((self._step_last_death - self._step)/10.)
+        self._state[index] = self.get_decay(self._step_last_death,10.)
 
         #print "child touch" 
         #print self._current_touches
@@ -122,6 +142,9 @@ class StateAnalyser(object):
         #print self._robot_touch
 
         self.publish_states()
+
+    def get_decay(self, step, parameter):
+        return np.exp((step-self._step)/parameter)
 
     def on_life(self, message):
         self._life = message.data
@@ -162,14 +185,29 @@ class StateAnalyser(object):
             self._game_running = False
         elif arguments[0] == "childrelease":
             self._current_touches -= 1
+            #If the character moves while the child release, undefined is sent
+            if arguments[1] == "undefined":
+                idx = np.where(self._characters_touched_child == True)
+            else:
+                idx = self._characters.index(arguments[1])
+            self._step_last_characters_touched_child[idx] = self._step
+            self._characters_touched_child[idx]=False
             if self._current_touches == 0:
                 self._step_last_action_child = self._step
         elif  arguments[0] == "robotrelease":
+            if arguments[1] == "undefined":
+                idx = np.where(self._characters_touched_robot == True)
+            else:
+                idx = self._characters.index(arguments[1])
             self._robot_touch = False
+            self._characters_touched_robot[idx]=False
+            self._step_last_characters_touched_robot[idx] = self._step
             self._step_last_action_robot = self._step
         elif  arguments[0] == "childtouch": 
             self._current_touches += 1
+            self._characters_touched_child[self._characters.index(arguments[1])]=True
         elif  arguments[0] == "robottouch":
+            self._characters_touched_robot[self._characters.index(arguments[1])]=True
             self._robot_touch = True
         elif arguments[0] == "characters" and len(self._characters) == 0:
             for i in range(1,len(arguments)):
@@ -198,6 +236,12 @@ class StateAnalyser(object):
         for idx, character in enumerate(self._characters):
             for other in (self._characters+self._targets)[idx+1:]:
                 self._state_label.append("d_"+character+"_"+other)
+        #Last time a character is touched by the child
+        for character in self._characters:
+            self._state_label.append("tc_"+character)
+        #Last time a character is touched by the robot
+        for character in self._characters:
+            self._state_label.append("tr_"+character)
         #progression, round number
         self._state_label.append("g_progress")
         #State used for trigger
@@ -211,6 +255,11 @@ class StateAnalyser(object):
         print len(self._state_label)
 
         self._state = np.zeros(len(self._state_label))
+
+        self._step_last_characters_touched_child = np.ones(len(self._characters))
+        self._step_last_characters_touched_robot = np.ones(len(self._characters))
+        self._characters_touched_child = np.full(len(self._characters), False, dtype=bool)
+        self._characters_touched_robot = np.full(len(self._characters), False, dtype=bool)
 
         self._initialised = True
 
