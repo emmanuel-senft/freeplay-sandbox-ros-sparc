@@ -211,6 +211,9 @@ class ActionAnalyser(object):
             strings = self._state_analyser._characters + self._state_analyser._targets
 
         strings.remove(item)
+        for idx, str in enumerate(self._state_analyser._targets + self._state_analyser._characters):
+            if self._state_analyser._life[idx] <= 0:
+                strings.remove(str)
         start_dist = [self._state_analyser.get_distance_objects(s, item) for s in strings]
         end_dist = [self._state_analyser.get_distance_item_pose(s, goal) for s in strings]
         if min(end_dist)<THRESHOLD_MOVE_TO:
