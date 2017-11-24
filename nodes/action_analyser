@@ -177,9 +177,13 @@ class ActionAnalyser(object):
         if message.type == "mv":
             action = self.get_action_move(item, message, message.strings)
             self._action_description_pub.publish(String(action))
+            self._state_analyser._robot_touch = True
         elif message.type == ACTION_ATTENTION:
             action = ACTION_ATTENTION+"_"+message.header.frame_id
-            
+            self._state_analyser._robot_speaks = True
+        else:
+            self._state_analyser._robot_speaks = True
+
         action = self._actions.index(action)
 
         self.publish_action(action, mask, reward)
