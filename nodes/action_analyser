@@ -108,8 +108,9 @@ class ActionAnalyser(object):
         print [self._state_analyser._state_label[i] for i,v in enumerate(state_mask) if v]
         if any(np.array(state_mask)==False):
             for str in [self._state_analyser._state_label[i] for i,v in enumerate(state_mask) if v]:
-                for i,s in enumerate(str.split("_")):
-                    if i>0 and s not in message_out.strings:
+                for s in str.split("_"):
+                    #limits features to items
+                    if (s in self._state_analyser._characters or s in self._state_analyser._targets)  and s not in message_out.strings:
                         message_out.strings.append(s) 
 
         if len(action_strings)>1:
