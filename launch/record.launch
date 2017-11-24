@@ -1,34 +1,22 @@
 
 <launch>
-
-    <arg name="camera1"              default="camera_purple" />
-    <arg name="camera2"              default="camera_yellow" />
-    <arg name="env_camera"           default="env_camera" />
     <arg name="duration"             default="1m" />
-    <arg name="output_file"          default="visual_tracking" />
+    <arg name="output_file"          default="foodchain" />
 
     <arg name="topics" default="/tf
-
-                                /footprints
-                                /zones
-                                /sandtray/background/image
-
-                                $(arg camera1)/audio
-                                $(arg camera2)/audio
-
-                                $(arg camera1)/rgb/camera_info 
-                                $(arg camera1)/rgb/image_raw/compressed 
-                                $(arg camera1)/depth/camera_info 
-                                $(arg camera1)/depth/image_raw/compressedDepth 
-
-                                $(arg camera2)/rgb/camera_info 
-                                $(arg camera2)/rgb/image_raw/compressed
-                                $(arg camera2)/depth/camera_info
-                                $(arg camera2)/depth/image_raw/compressedDepth
-
-                                $(arg env_camera)/qhd/camera_info 
-                                $(arg env_camera)/qhd/image_color/compressed 
-                                "/>
+        /nao/blocking_speech
+        /nao/events
+        /sandtray/interaction_events
+        /sandtray/background/image
+        /sparc/state
+        /sparc/life
+        /sparc/event
+        /sparc/selected_action
+        /sparc/rewarded_action_dis
+        /sparc/proposed_action
+        /sparc/proposed_action_dis
+        " 
+        />
 
      <node pkg="rosbag" type="record" name="rosbag_record_freeplay_sandbox"
          args="--output-name $(arg output_file) $(arg topics) --duration=$(arg duration)"
