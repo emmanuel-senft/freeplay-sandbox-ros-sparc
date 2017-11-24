@@ -84,10 +84,7 @@ class Actor(object):
         indexes = np.zeros(len(self._actions),dtype=int)
         for i, action in enumerate(self._actions):
             #Prepare case only False, no vector
-            if len(action._states.mask.shape) == 0:
-                similarity = 1-np.divide(np.sum((action._states-self._state)*(action._states-self._state),axis=1),len(self._state))
-            else:
-                similarity = 1-np.divide(np.sum((action._states-self._state)*(action._states-self._state),axis=1),np.sum(~action._states.mask,axis=1))
+            similarity = self.get_similarity_states(action._states,self._state)
             max_similarity = max(similarity)
             idx = len(similarity) - 1 - np.argmax(similarity[::-1])
             reward = action._rewards[idx]
