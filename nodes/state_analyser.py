@@ -46,15 +46,12 @@ class StateAnalyser(object):
         self._gaze_sub = rospy.Subscriber("gazepose_0", PoseStamped, self.on_gaze)
 
         self._state_pub = rospy.Publisher("sparc/state", ListFloatStamped, queue_size = 5)
-        self._trigger_state_pub = rospy.Publisher("sparc/trigger_state", ListFloatStamped, queue_size = 5)
         self._event_pub = rospy.Publisher("sandtray/interaction_events", String, queue_size = 5)
 
         self._stopping = False
 
         self._state=np.array([],dtype = float)
         self._state_label=[]
-        self._trigger_state=np.array([],dtype = float)
-        self._trigger_state_label = []
         self._characters = []
         self._targets = []
         self._initialised = False
@@ -119,19 +116,10 @@ class StateAnalyser(object):
         index+=1
         self._state[index] = np.exp((self._step_last_death - self._step)/10.)
 
-        #Trigger state
-        self._trigger_state[0:len(self._characters)]=np.array(self._life[0:len(self._characters)])
         #print "child touch" 
         #print self._current_touches
         #print "robot touch" 
         #print self._robot_touch
-
-        self._trigger_state[-4]=self._state[-4]
-        self._trigger_state[-3]=self._state[-3]
-        self._trigger_state[-2]=self._state[-2]
-        self._trigger_state[-1]=self._state[-1]
-
-        print self._trigger_state
 
         self.publish_states()
 
@@ -151,9 +139,6 @@ class StateAnalyser(object):
         message.header.frame_id = "sandtray"
         message.data = self._state
         self._state_pub.publish(message)
-
-        message.data = self._trigger_state
-        self._trigger_state_pub.publish(message)
 
     def get_pose(self, item, reference=REFERENCE_FRAME):
        # if item not in self._tl.getFrameStrings():
@@ -224,16 +209,8 @@ class StateAnalyser(object):
         self._state_label.append("last_death")
 
         print len(self._state_label)
-        
-        for c in self._characters:
-            self._trigger_state_label.append("l_"+c)
-        self._trigger_state_label.append("last_child_action")
-        self._trigger_state_label.append("last_robot_action")
-        self._trigger_state_label.append("last_feeding")
-        self._trigger_state_label.append("last_death")
 
         self._state = np.zeros(len(self._state_label))
-        self._trigger_state = np.zeros(len(self._trigger_state_label))
 
         self._initialised = True
 

@@ -170,7 +170,6 @@ class ActionAnalyser(object):
         item = message.header.frame_id
         mask = self.get_mask(message.strings)
         reward = message.reward
-        trigger_mask = self.get_trigger_mask(message.strings)
 
         action = message.type 
         if message.type == "mv":
@@ -180,7 +179,7 @@ class ActionAnalyser(object):
             
         action = self._actions.index(action)
 
-        self.publish_action(action, mask, trigger_mask, reward)
+        self.publish_action(action, mask, reward)
 
         if DEBUG:
             print mask
@@ -240,23 +239,12 @@ class ActionAnalyser(object):
             #print mask
         return mask
 
-    def get_trigger_mask(self, strings):
-        mask = np.full(self._state_analyser._trigger_state.shape,False, dtype=bool)
-        for i,c in enumerate(self._state_analyser._characters):
-            if c in strings:
-                mask[i] = True
-        mask[-3] = True
-        mask[-2] = True
-        mask[-1] = True
-        return mask
-
-    def publish_action(self, action, mask, trigger_mask, reward):
+    def publish_action(self, action, mask, reward):
         message = DiscreteAction() 
         message.header.frame_id = REFERENCE_FRAME
         message.header.stamp = rospy.Time(0)
         message.action_id = action
         message.state_mask = mask
-        message.trigger_mask = trigger_mask
         message.reward = reward
         self._rewarded_action_pub.publish(message)
 
