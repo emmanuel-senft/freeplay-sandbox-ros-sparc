@@ -44,6 +44,8 @@ class Player(object):
         rospy.spin()
 
     def on_action_received(self,action):
+        if action.reward <= 0:
+            return
         if action.type.startswith("mv"):
             item = action.header.frame_id
 
