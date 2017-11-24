@@ -105,6 +105,7 @@ class Actor(object):
         message.header.stamp = rospy.Time(0)
         message.action_id = self._actions[index_selected_action]._action
         message.state_mask=mask
+        message.reward = max(weighted_rewards)
 
         self._action_pub.publish(message)
 
