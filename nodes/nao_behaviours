@@ -5,7 +5,6 @@ Listens for a trajectory to write and sends it to the nao via naoqi SDK.
 Requires a running robot/simulation with ALNetwork proxies.
 
 """
-from copy import deepcopy
 from naoqi import ALModule, ALBroker, ALProxy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path
@@ -17,176 +16,66 @@ import numpy
 import math
 import random
 import threading
-
-TO_RAD = math.pi / 180
-
-# masks for which axes naoqi is to control with its planning
-axisMask=motion.AXIS_MASK_VEL
-#axisMask=motion.AXIS_MASK_ALL
-
-HEAD_FRAME="Neck"
-
-NAO_ARM_LENGTH=0.105 #m -> lenght of the link RBicep, from URDF
-NAO_FOREARM_LENGTH=0.11 #m -> approx. lenght of forearm + half hand
-
-# See
-# http://doc.aldebaran.com/1-14/family/robots/joints_robot.html#robot-joints-v4-left-arm-joints
-NAO_RSHOULDER_ANGLE_LIMITS = [-76 * TO_RAD, 18 * TO_RAD]
-NAO_RELBOW_ANGLE_LIMITS = [2 * TO_RAD, 88.5 * TO_RAD]
-
-tl = None
-
-is_tracking_focus = False
-robot_ready_to_point = False
-is_waiting = True
-last_pose = None
+import signal
+import sys
 
 def look_at(targetpose):
-    trackerProxy.stopTracker()
-    global is_waiting
-    is_waiting = False
-    reference_frame = "torso"
-    targetpose.header.stamp = tl.getLatestCommonTime(targetpose.header.frame_id,reference_frame)
-    pose = tl.transformPose(reference_frame, targetpose)
-
-    target = [pose.pose.position.x,pose.pose.position.y,pose.pose.position.z]
-    trackerProxy.lookAt(target, 0, .3, False)
-
-def point_at(targetpose):
-    global is_waiting
-    is_waiting = False
     reference_frame = "torso"
     try:
         targetpose.header.stamp = tl.getLatestCommonTime(targetpose.header.frame_id,reference_frame)
         pose = tl.transformPose(reference_frame, targetpose)
+        target = [pose.pose.position.x,pose.pose.position.y,pose.pose.position.z]
+        trackerProxy.lookAt(target, 0, .3, False)
     except:
         return
 
-    target = [pose.pose.position.x,pose.pose.position.y,pose.pose.position.z]
-    trackerProxy.pointAt(effector, target, 0, .3)
-    pub_event.publish(String("pointing_finished"))
-
-def set_pointing_posture():
-    global robot_ready_to_point
-
-    if not robot_ready_to_point:
-        names  = ["RShoulderRoll",
-                "RShoulderPitch", 
-                "RElbowRoll", 
-                "RElbowYaw",
-                "RWristYaw"]
-        angleLists  = [[-10 * TO_RAD, -75 * TO_RAD, -75 * TO_RAD, -35 * TO_RAD],
-                    [70 * TO_RAD, 70 * TO_RAD, 10 * TO_RAD],
-                    [2 * TO_RAD, 2 * TO_RAD, 60 * TO_RAD],
-                    [0 * TO_RAD],
-                    [0 * TO_RAD]]
-        timeLists   = [[1.0, 3.0,4.0,5.0],
-                    [1.0, 3.0, 4.0],
-                    [1.0,4.0,5.0],
-                    [1.0],
-                    [1.0]]
-        isAbsolute  = True
-        motionProxy.angleInterpolation(names, angleLists, timeLists, isAbsolute) #blocking!
-
-    robot_ready_to_point = True
-
-def relax():
-    global robot_ready_to_point
-
-    if robot_ready_to_point:
-        names  = ["RShoulderRoll",
-                "RShoulderPitch", 
-                "RElbowRoll"]
-        angleLists  = [[-75 * TO_RAD, -75 * TO_RAD, -10 * TO_RAD],
-                    [10 * TO_RAD, 70 * TO_RAD],
-                    [2 * TO_RAD]]
-        timeLists   = [[1.0, 3.0, 5.0],
-                    [1.0, 3.0],
-                    [1.5]]
-        isAbsolute  = True
-        motionProxy.angleInterpolation(names, angleLists, timeLists, isAbsolute) #blocking!
-
-    robot_ready_to_point = False
+def point_at(targetpose):
+    reference_frame = "torso"
+    try:
+        targetpose.header.stamp = tl.getLatestCommonTime(targetpose.header.frame_id,reference_frame)
+        pose = tl.transformPose(reference_frame, targetpose)
+        target = [pose.pose.position.x,pose.pose.position.y,pose.pose.position.z]
+        trackerProxy.pointAt(effector, target, 0, .3)
+        pub_event.publish(String("pointing_finished"))
+    except:
+        return
 
 def waiting():
-    postureProxy.goToPosture("Stand", 0.5)
-    motionProxy.setBreathEnabled("Body",True)
-    #trackerProxy.lookAt([1,0,.2], 0, .1,False)
-    trackerProxy.track("Face")
-    ledProxy.fadeRGB("FaceLeds",1,1,1,.1)
-    return
-    names  = ["RShoulderRoll",
-              "RElbowRoll"]
-    angleLists  = [[-random.randint(30,40) * TO_RAD],
-                   [random.randint(50,70) * TO_RAD]]
-    timeLists   = [[1.0],
-    	       [1.0]]
-    isAbsolute  = True
-#    motionProxy.angleInterpolation(names, angleLists, timeLists, isAbsolute) #blocking!
+    try:
+        postureProxy.goToPosture("Stand", 0.5)
+        motionProxy.setBreathEnabled("Body",True)
+        trackerProxy.lookAt([1,0,.2], 0, .1,False)
+        trackerProxy.track("Face")
+        ledProxy.fadeRGB("FaceLeds",1,1,1,.1)
+    except:
+        return
+
 def on_blink(message):
     ledProxy.fade("FaceLeds",0,.1)
     ledProxy.fade("FaceLeds",1,.1)
 
 def on_event(message):
-    global is_waiting
     if message.data == "motion_finished" or message.data == "att_finished":
-        is_waiting = True
         waiting()
 
 def on_pose(pose):
-    global last_pose
-
-    if is_tracking_focus:
-        rospy.logwarn("Received a path, but Nao is going to ignore it as it currently track the ' robot focus'")
-        return
-
-    if(hasFallen == False): #no harm in executing trajectory
-        #if(effector == "LArm"):
-        #    motionProxy.openHand("LHand");
-        #    roll = -1.7; #rotate wrist to the left (about the x axis, w.r.t. robot frame)
-        #else:
-        #    motionProxy.openHand("RHand");
-        #    roll = 1.7; #rotate wrist to the right (about the x axis, w.r.t. robot frame)
-
-        #if not robot_ready_to_point:
-        #    set_pointing_posture()
-        #else:
-        threading.Thread(target=point_at,args=(pose,)).start()
-        look_at(pose)
-
-        last_pose = rospy.Time.now()
-
-
-    else:
-        rospy.loginfo("Got pose to look at, but I've fallen!");
+    threading.Thread(target=point_at,args=(pose,)).start()
+    look_at(pose)
 
 def on_blocking_speech(sentence):
     pub_event.publish(String("blocking_speech_started-"+sentence.data))
     ttsProxy.say(sentence.data)
     pub_event.publish(String("blocking_speech_finished-"+sentence.data))
 
-class FallResponder(ALModule):
-  """ Module to react to robotHasFallen events """
-  
-  def __init__(self, name, motionProxy, memoryProxy):
-      ALModule.__init__(self, name)
-      self.motionProxy = motionProxy;
-      memoryProxy.subscribeToEvent("robotHasFallen",name,self.has_fallen.__name__);
-      rospy.loginfo("Subscribed to robotHasFallen event");
-  def has_fallen(self, *_args):
-      global hasFallen
-      hasFallen = True;
-      self.motionProxy.killAll();
-      rospy.loginfo("Stopped task");
-      
-if __name__ == "__main__":
-    global is_waiting
+def signal_handler(signal, frame):
+    rospy.signal_shutdown("press ctrl-c")
 
+if __name__ == "__main__":
     rospy.init_node("nao_behaviours");
     
     POSES_TOPIC = rospy.get_param('~poses_output_topic','poses')
-    NAO_IP = rospy.get_param('~nao_ip','127.0.0.1'); #default behaviour is 
-                                        #to connect to simulator locally
+    NAO_IP = rospy.get_param('~nao_ip','127.0.0.1')
+    port = 9559
     NAO_HANDEDNESS = rospy.get_param('~nao_handedness','right')
     if(NAO_HANDEDNESS.lower()=='right'):
         effector   = "RArm"
@@ -196,49 +85,31 @@ if __name__ == "__main__":
         rospy.logerr('error in handedness param')
 
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
-
-    sub_blocking_speech = rospy.Subscriber("/nao/blocking_speech", String, on_blocking_speech, queue_size=5)
     pub_event = rospy.Publisher("/nao/events", String, queue_size=5)
+    sub_blocking_speech = rospy.Subscriber("/nao/blocking_speech", String, on_blocking_speech, queue_size=5)
     sub_event = rospy.Subscriber("/nao/events", String, on_event)
     sub_blink = rospy.Subscriber("/nao/blink", Empty, on_blink)
 
-    # We need this broker to be able to construct
-    # NAOqi modules and subscribe to other modules
-    # The broker must stay alive until the program exists
-    port = 9559;
-    myBroker = ALBroker("myBroker", #I'm not sure that pyrobots doesn't already have one of these open called NAOqi?
-        "0.0.0.0",   # listen to anyone
-        0,           # find a free port and use it
-        NAO_IP,      # parent broker IP
-        port)        # parent broker port
-    hasFallen = False;
     motionProxy = ALProxy("ALMotion", NAO_IP, port);
-    motionProxy.setBreathConfig([["Bpm", 6], ["Amplitude", 0.9]])
-    motionProxy.setBreathEnabled("Body",False)
     memoryProxy = ALProxy("ALMemory", NAO_IP, port);
     ttsProxy = ALProxy("ALTextToSpeech", NAO_IP, port);
     postureProxy = ALProxy("ALRobotPosture", NAO_IP, port)
     trackerProxy = ALProxy("ALTracker", NAO_IP, port)
-    trackerProxy.registerTarget("Face",.2)
     ledProxy = ALProxy("ALLeds", NAO_IP, port)
+    
+    motionProxy.setBreathConfig([["Bpm", 6], ["Amplitude", 0.9]])
+    motionProxy.setBreathEnabled("Body",False)
+    trackerProxy.registerTarget("Face",.2)
     ledProxy.fadeRGB("FaceLeds",1,1,1,.1)
 
-    #fallResponder = FallResponder("fallResponder",motionProxy,memoryProxy);
-    
-    motionProxy.wbEnableEffectorControl(effector,False); #if robot has fallen it will have a hard time getting up if the effector is still trying to be kept in a particular position
     motionProxy.wakeUp()
     postureProxy.goToPosture("Stand", 0.5)
     trackerProxy.lookAt([0.5,0,-.2],0,.1,False)
-
-    #set_pointing_posture()
 
     tl = tf.TransformListener()
 
     ### Check the robot is launched and properly localised wrt the sandtray
     while not rospy.is_shutdown():
-#        if not tl.frameExists("/odom"):
-#            rospy.logwarn("Waiting for frame /odom to be published...")
-#        else:
         try:
             t = tl.getLatestCommonTime("odom", "sandtray")
             if tl.canTransform("odom", "sandtray",t):
@@ -252,43 +123,14 @@ if __name__ == "__main__":
 
         rospy.sleep(0.5)
 
-    sub_poses = rospy.Subscriber(POSES_TOPIC, PoseStamped, on_pose, queue_size=1) # queue_size = 1 to discard all but the most recent pose -- otherwise, tracking would possibly lag
+    sub_poses = rospy.Subscriber(POSES_TOPIC, PoseStamped, on_pose, queue_size=1) 
     motionProxy.setBreathEnabled("Body",True)
     waiting()
 
     r = rospy.Rate(2)
 
-
     while not rospy.is_shutdown():
-        try:
-            t = tl.getLatestCommonTime(HEAD_FRAME, "robot_focus")
-            if tl.canTransform(HEAD_FRAME, "robot_focus",t):
-                is_tracking_focus = True
-                robot_focus = PoseStamped()
-                robot_focus.header.stamp = rospy.Time(0)
-                robot_focus.header.frame_id = "robot_focus"
-                #if not robot_ready_to_point:
-                #    set_pointing_posture()
-                #else:
-                threading.Thread(target=point_at,args=(robot_focus,)).start()
-                look_at(robot_focus)
-            else:
-                is_tracking_focus = False
-        except Exception as e: # most likely, robot_focus is not published. That's ok, don't track it then
-            is_tracking_focus = False
-            pass
-
-
-#        if last_pose and (rospy.Time.now() - last_pose).to_sec() > 30:
-#            relax()
-
-#        if is_waiting:
-#            waiting()
-
         r.sleep()
 
-
-    #relax()
-    #motionProxy.rest()
-
-    myBroker.shutdown()
+    motionProxy.setBreathEnabled("Body",False)
+    trackerProxy.stopTracker()
