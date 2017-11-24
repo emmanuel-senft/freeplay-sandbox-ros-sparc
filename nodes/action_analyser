@@ -44,6 +44,7 @@ class ActionAnalyser(object):
         self._proposed_action_pub = rospy.Publisher("sparc/proposed_action", ContinuousAction, queue_size = 5)
 
         self._state_analyser = StateAnalyser()
+        self._proposing_action = False
         
         self._actions = []
 
@@ -70,6 +71,8 @@ class ActionAnalyser(object):
         if len(self._actions) == 0:
             if not self.init_actions():
                 return 
+        if self._proposing_action:
+            return
         
         if DEBUG:
             print message.data
@@ -95,6 +98,7 @@ class ActionAnalyser(object):
                     message.reward = -1
                     self._rewarded_action_pub.publish(message)
                     return
+        self._proposing_action = True
                     
         message_out = ContinuousAction()
 
@@ -158,6 +162,7 @@ class ActionAnalyser(object):
          return self._state_analyser.get_point_action(masked_action)
 
     def on_selected_action(self, message):
+        self._proposing_action = False
         print "action selected"
         if len(self._actions) == 0:
             if not self.init_actions():
