@@ -97,14 +97,13 @@ class StateAnalyser(object):
             for other in (self._characters+self._targets)[idx+1:]:
                 self._state[index]=self.get_distance_objects(character,other)/DIAGONAL
                 index+=1
+
+        self._state[index] = self._progression
+        index+=1
+
         for value in self._life:
             self._state[index] = value
             index+=1
-        for v in (self._characters  + self._targets):
-            self._state[index]=self.dist(self.get_pose(v),self._eye_pose)/DIAGONAL
-            index+=1
-        self._state[index] = self._progression
-        index+=1
 
         if self._current_touches > 0:
             self._state[index] = 1
@@ -214,12 +213,11 @@ class StateAnalyser(object):
         for idx, character in enumerate(self._characters):
             for other in (self._characters+self._targets)[idx+1:]:
                 self._state_label.append("d_"+character+"_"+other)
-        for v in self._characters + self._targets:
-            self._state_label.append("l_"+v)
-        for v in (self._characters  + self._targets):
-            self._state_label.append("g_"+v)
         #progression, round number
         self._state_label.append("g_progress")
+        #State used for trigger
+        for v in self._targets + self._characters: 
+            self._state_label.append("l_"+v)
         self._state_label.append("last_child_action")
         self._state_label.append("last_robot_action")
         self._state_label.append("last_feeding")

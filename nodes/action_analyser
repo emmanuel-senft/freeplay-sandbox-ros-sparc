@@ -232,6 +232,10 @@ class ActionAnalyser(object):
             mask[idx]=l[1] in strings
             if len(l)>2:
                 mask[idx] = mask[idx] and l[2] in strings
+        mask[-1]=True
+        mask[-2]=True
+        mask[-3]=True
+        mask[-4]=True
         #if DEBUG:
             #print mask
         return mask

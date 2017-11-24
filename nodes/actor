@@ -14,11 +14,11 @@ import signal, sys
 import os
 
 DEBUG = False
+TRIGGER_NUMBER = 14
 
 class Actor(object):
     def __init__(self):
         self._state_sub = rospy.Subscriber("sparc/state", ListFloatStamped, self.on_state)
-        self._trigger_state_sub = rospy.Subscriber("sparc/trigger_state", ListFloatStamped, self.on_trigger_state)
         self._action_sub = rospy.Subscriber("sparc/rewarded_action_dis",DiscreteAction, self.on_action)
         self._event_sub = rospy.Subscriber("sparc/event", String, self.on_event)
 
@@ -41,10 +41,15 @@ class Actor(object):
 
     def on_state(self, message):
         self._state = np.array(message.data)
+        self.check_trigger()
         ##print self._state
 
-    def on_trigger_state(self, message):
-        self._trigger_state = np.array(message.data)
+    def check_trigger(self):
+        if len(self._trigger_states)==0:
+            return
+        max_similarity = max(self.get_similarity_states(self._trigger_states,self._state[-TRIGGER_NUMBER:]))
+        if max_similarity>.98:
+            self.select_action()
 
     def on_event(self, message):
         if message.data == "select":
@@ -61,15 +66,9 @@ class Actor(object):
             print masked_state
 
         self.add_point(action, masked_state, reward)
-
-        if len(message.trigger_mask) > 0:
-            trigger_mask = np.array(message.trigger_mask)
-            masked_trigger_state = ma.array(self._trigger_state, mask = ~trigger_mask, dtype = float)
-            self._trigger_states.append(masked_trigger_state)
-        self._proposed_action = None
     
     # Similarity (euclidian distance normalised by the number of defined dimensions)
-    # with x a masked state and y a normal one
+    # with x a masked array and y a vector
     def get_similarity_states(self, x, y):
         similarity = 1-np.divide(np.sum(np.square(x-y),axis=1),np.sum(~x.mask,axis=1))
         return similarity
@@ -95,7 +94,6 @@ class Actor(object):
             return
         index_selected_action = np.argmax(weighted_rewards)
         proposed_action = self._actions[index_selected_action]
-
 
         if len(self._actions[index_selected_action]._states[indexes[index_selected_action]].mask.shape) == 0:
             mask = ~np.full(self._state.shape,self._actions[index_selected_action]._states[indexes[index_selected_action]].mask, dtype=bool)
