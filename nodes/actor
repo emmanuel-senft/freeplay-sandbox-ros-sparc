@@ -71,12 +71,7 @@ class Actor(object):
     # Similarity (euclidian distance normalised by the number of defined dimensions)
     # with x a masked state and y a normal one
     def get_similarity_states(self, x, y):
-        if DEBUG:
-            print x - y
-        #similarity = 1 - math.sqrt(np.sum((x-y)*(x-y)))/sum(~x.mask)
-        similarity = 1 - (np.sum((x-y)*(x-y)))/sum(~x.mask)
-        if similarity is ma.masked:
-            similarity = 0.5
+        similarity = 1-np.divide(np.sum(np.square(x-y),axis=1),np.sum(~x.mask,axis=1))
         return similarity
 
     def select_action(self):
