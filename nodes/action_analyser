@@ -37,7 +37,6 @@ class ActionAnalyser(object):
 
         self._event_sub = rospy.Subscriber("sandtray/interaction_events", String, self.on_event)
         self._selected_action_sub = rospy.Subscriber("sparc/selected_action",ContinuousAction , self.on_selected_action)
-        self._cancelled_action_sub = rospy.Subscriber("sparc/cancelled_action",ContinuousAction , self.on_cancelled_action)
 
         self._proposed_action_sub = rospy.Subscriber("sparc/proposed_action_dis",DiscreteAction, self.on_action_proposed)
         self._rewarded_action_pub = rospy.Publisher("sparc/rewarded_action_dis", DiscreteAction, queue_size = 5)
@@ -158,16 +157,14 @@ class ActionAnalyser(object):
          masked_action = ma.array(action, mask = ~mask, dtype = int)
          return self._state_analyser.get_point_action(masked_action)
 
-    def on_cancelled_action(self, message):
-        self.on_selected_action(message, -1)
-
-    def on_selected_action(self, message, reward = 1):
+    def on_selected_action(self, message):
         print "action selected"
         if len(self._actions) == 0:
             if not self.init_actions():
                 return 
         item = message.header.frame_id
         mask = self.get_mask(message.strings)
+        reward = message.reward
         trigger_mask = self.get_trigger_mask(message.strings)
 
         action = message.type 
@@ -243,15 +240,6 @@ class ActionAnalyser(object):
         mask[-2] = True
         mask[-1] = True
         return mask
-
-    def cancel_action(self, action, mask):
-        message = DiscreteAction() 
-        message.header.frame_id = REFERENCE_FRAME
-        message.header.stamp = rospy.Time(0)
-        message.action = action
-        message.state_mask = mask
-        self._cancelled_action_pub.publish(message)
-
 
     def publish_action(self, action, mask, trigger_mask, reward):
         message = DiscreteAction() 
