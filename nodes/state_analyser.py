@@ -183,6 +183,7 @@ class StateAnalyser(object):
             self.get_state()
         elif arguments[0] == "stop":
             self._game_running = False
+            self._robot_touch = False
         elif arguments[0] == "childrelease":
             self._current_touches -= 1
             #If the character moves while the child release, undefined is sent

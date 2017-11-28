@@ -46,6 +46,7 @@ class ActionAnalyser(object):
 
         self._state_analyser = StateAnalyser()
         self._proposing_action = False
+        self._preparing_action = False
         
         self._actions = []
 
@@ -72,7 +73,7 @@ class ActionAnalyser(object):
         if len(self._actions) == 0:
             if not self.init_actions():
                 return 
-        if self._proposing_action:
+        if self._proposing_action or self._state_analyser._robot_touch or self._state_analyser._robot_speaks or self._preparing_action:
             return
         
         if DEBUG:
@@ -165,9 +166,11 @@ class ActionAnalyser(object):
 
     def on_selected_action(self, message):
         self._proposing_action = False
+        self._preparing_action = True
         print "action selected"
         if len(self._actions) == 0:
             if not self.init_actions():
+                self._executing_action = False
                 return 
         item = message.header.frame_id
         mask = self.get_mask(message.strings)
@@ -176,16 +179,19 @@ class ActionAnalyser(object):
         action = message.type 
         if message.type == "mv":
             action = self.get_action_move(item, message, message.strings)
-            self._action_description_pub.publish(String(action))
-            self._state_analyser._robot_touch = True
+            if reward > 0:
+                self._action_description_pub.publish(String(action))
+                self._state_analyser._robot_touch = True
         elif message.type == ACTION_ATTENTION:
             action = ACTION_ATTENTION+"_"+message.header.frame_id
-            self._state_analyser._robot_speaks = True
-        else:
+            if reward > 0:
+                self._state_analyser._robot_speaks = True
+        elif reward > 0:
             self._state_analyser._robot_speaks = True
 
         action = self._actions.index(action)
 
+        self._preparing_action = False
         self.publish_action(action, mask, reward)
 
         if DEBUG:
@@ -262,9 +268,12 @@ class ActionAnalyser(object):
         rospy.spin()
 
     def on_event(self, event):
-#        arguments = event.data.split("_")
-#        if event.m
-        pass
+        arguments = event.data.split("_")
+        if arguments[0] == "reset":
+            self._proposing_action = False
+        elif arguments[0] == "stop":
+            self._proposing_action = False
+            self._preparing_action = False
 
     def signal_handler(self, signal, frame):
         self._stopping = True
