@@ -220,6 +220,8 @@ class StateAnalyser(object):
             self._step_last_feeding = self._step
         elif arguments[0] == "animaldead":
             self._step_last_death = self._step
+            self._characters_touched_child[self._characters.index(arguments[1])] = False
+            self._characters_touched_robot[self._characters.index(arguments[1])] = False
 
         if len(self._characters) > 0 and len(self._targets) > 0 and not self._initialised:
             self.init_label()
