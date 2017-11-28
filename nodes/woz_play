@@ -24,7 +24,7 @@ class Player(object):
         rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
 
         self._action_sub = rospy.Subscriber("sparc/selected_action", freeplay_sandbox_msgs.msg.ContinuousAction, self.on_action_received)
-        self._description_sub = rospy.Subscriber("sparc/action_description", String, self._on_description)
+        self._description_sub = rospy.Subscriber("sparc/action_description", String, self.on_description)
         self._event_sub = rospy.Subscriber("sandtray/interaction_events", String, self.on_event)
         self._nao_event_sub = rospy.Subscriber("nao/events", String, self.on_nao_event)
         self._motion = actionlib.SimpleActionClient('move_sandbox_items', freeplay_sandbox_msgs.msg.PlaygroundNavigationAction)
@@ -39,6 +39,17 @@ class Player(object):
         self._moving_item = None
         self._waiting_speech = None
         self._waiting_pointing = None
+        self._sentences_congrats = ["Well done", "Excellent"]
+        self._sentences_congrats_said = []
+        self._sentences_encours = ["Keep going", "You can do it"]
+        self._sentences_encours_said = []
+        self._sentences_look = ["Look at the ", "What about the "]
+        self._sentences_look_said = []
+        self._sentences_move = ["Let's move the x y z ", "Look, the x wants to go y z "]
+        self._sentences_move_said = []
+        self._sentences_rules = ["Animals need to eat to stay alive." , "Move the animals to feed them."]
+        self._sentences_rules_said = []
+
 
     def run(self):
         rospy.spin()
@@ -69,7 +80,7 @@ class Player(object):
 
         if action.type == "att":
             item = action.header.frame_id
-            self._blocking_speech_pub.publish(String("Look at the "+item.split("-")[0]))
+            self._blocking_speech_pub.publish(String(self.one_among_many(self._sentences_look, self._sentences_look_said)+item.split("-")[0]))
             message = PoseStamped()
             message.header.frame_id = item
             message.header.stamp = rospy.Time.now()
@@ -77,26 +88,27 @@ class Player(object):
             self._waiting_pointing=action.type
 
         if action.type == "congrats":
-            self.say_blocked("Well done", action.type)
+            self.say_blocked(self.one_among_many(self._sentences_congrats, self._sentences_congrats_said), action.type)
 
         if action.type == "encour":
-            self.say_blocked("Keep going, you can do it", action.type)
+            self.say_blocked(self.one_among_many(self._sentences_encours, self._sentences_encours_said), action.type)
 
         if action.type == "rul":
-            self.say_blocked("Remember, you have to feed the animals to keep them alive", action.type)
+            self.say_blocked(self.one_among_many(self._sentences_rules, self._sentences_rules_said), action.type)
 
     #To add description to a move
-    def _on_description(self, message):
+    def on_description(self, message):
         lst = message.data.split("_")
-        str = "Let's move the " + lst[1]
-        if lst[0] == "mvt":
-            str = str + " to"
+        sentence = self.one_among_many(self._sentences_move, self._sentences_move_said)
+        sentence = sentence.replace(" x ", " "+lst[1]+" ")
+        motion = " to "
         if lst[0] == "mvc":
-            str = str + " close to"
+            motion = " close to "
         if lst[0] == "mva":
-            str = str + " away from"
-        str = str + " the " + lst[2].split("-")[0]
-        self._blocking_speech_pub.publish(String(str))
+            motion = " away from "
+        sentence = sentence.replace(" y ", motion)
+        sentence = sentence.replace(" z "," the "+lst[2].split("-")[0]+" ")
+        self._blocking_speech_pub.publish(String(sentence))
 
     def say_blocked(self, msg, action):
         self._blocking_speech_pub.publish(String(msg))
@@ -125,6 +137,16 @@ class Player(object):
         else:
             return None
         return trans
+
+    def one_among_many(self, sentences, indexes):
+        if len(sentences) == len(indexes):
+            del indexes[:]
+        index = random.randint(0, len(sentences)-1)
+        while index in indexes:
+            index = random.randint(0, len(sentences)-1)
+        indexes.append(index)
+        return sentences[index]
+
 
 if __name__ == "__main__":
 
