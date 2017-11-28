@@ -318,6 +318,8 @@ class StateAnalyser(object):
         if dist > threshold:
             point = -math.sqrt(threshold/dist)*(goal-origin)+goal
             point = self.find_empty_around_point(point)
+            if self.dist(origin, goal) < self.dist(point, goal):
+                return None
         else:
             point = origin + 0.1 * (goal-origin)
 
