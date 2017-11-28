@@ -58,6 +58,7 @@ class PlaygroundTrajTrackerAction(object):
         self._as.start()
         self._event = threading.Event()
         self._sub_event = rospy.Subscriber("nao/events", String, self.on_event)
+        self._sub_event = rospy.Subscriber("sandtray/interaction_events", String, self.on_interaction_event)
         self._pub_event = rospy.Publisher("nao/events", String, queue_size = 5)
 
     def execute_cb(self, goal):
@@ -157,6 +158,11 @@ class PlaygroundTrajTrackerAction(object):
     def on_event(self, message):
         if message.data == "pointing_finished":
             self._event.set()
+
+    def on_interaction_event(self, message):
+        if message.data == "sup_act_cancel":
+            print "cancelling"
+            self._as.preempt_request = True
 
 
 if __name__ == '__main__':
