@@ -47,8 +47,8 @@ class Actor(object):
     def check_trigger(self):
         if len(self._trigger_states)==0:
             return
-        max_similarity = max(self.get_similarity_states(self._trigger_states,self._state[-TRIGGER_NUMBER:]))
-        if max_similarity>.98:
+        similarities = self.get_similarity_states(self._trigger_states,self._state[-TRIGGER_NUMBER:])
+        if max(similarities) > .98:
             self.select_action()
 
     def on_event(self, message):
@@ -157,11 +157,12 @@ class Actor(object):
         else:
             new_action = Action(action, state, reward)
             self._actions.append(new_action)
-        if len(self._trigger_states) == 0:
-            self._trigger_states=ma.reshape(state[-TRIGGER_NUMBER:],(1,TRIGGER_NUMBER))
-        else:
-            reshaped_trigger_states = ma.reshape(state[-TRIGGER_NUMBER:],(1,TRIGGER_NUMBER))
-            self._trigger_states = ma.append(self._trigger_states,reshaped_trigger_states, axis=0) 
+        if reward > 0:
+            if len(self._trigger_states) == 0:
+                self._trigger_states=ma.reshape(state[-TRIGGER_NUMBER:],(1,TRIGGER_NUMBER))
+            else:
+                reshaped_trigger_states = ma.reshape(state[-TRIGGER_NUMBER:],(1,TRIGGER_NUMBER))
+                self._trigger_states = ma.append(self._trigger_states,reshaped_trigger_states, axis=0) 
 
 class Action(object):
     def __init__(self, act, state, reward):
