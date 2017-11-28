@@ -86,14 +86,14 @@ class ActionAnalyser(object):
         print action_strings
 
         #Identify if action doable (if life of all items>0)
-        for str in action_strings:
+        for string in action_strings:
             try:
-                index=self._state_analyser._state_label.index("l_"+str)
+                index=self._state_analyser._state_label.index("l_"+string)
             except ValueError:
                 pass
             else:
                 if not (self._state_analyser._state[index] > 0):
-                    print "Dead item: "+str
+                    print "Dead item: "+string
                     mask = np.full(self._state_analyser._state.shape, False, dtype=bool)
                     mask[index] = True
                     message.state_mask = mask
@@ -108,8 +108,8 @@ class ActionAnalyser(object):
         print len(state_mask)
         print [self._state_analyser._state_label[i] for i,v in enumerate(state_mask) if v]
         if any(np.array(state_mask)==False):
-            for str in [self._state_analyser._state_label[i] for i,v in enumerate(state_mask) if v]:
-                for s in str.split("_"):
+            for string in [self._state_analyser._state_label[i] for i,v in enumerate(state_mask) if v]:
+                for s in string.split("_"):
                     #limits features to items
                     if (s in self._state_analyser._characters or s in self._state_analyser._targets)  and s not in message_out.strings:
                         message_out.strings.append(s) 
