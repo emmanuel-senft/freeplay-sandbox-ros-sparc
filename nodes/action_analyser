@@ -235,9 +235,7 @@ class ActionAnalyser(object):
             return ACTION_MOVE_CLOSE+"_"+item+"_"+strings[index]
 
     def get_mask(self, strings):
-        mask = np.full(self._state_analyser._state.shape,True, dtype=bool)
-        if len(strings) == 0:
-            return mask
+        mask = np.full(self._state_analyser._state.shape, False, dtype=bool)
         
 #        mask = [ v.startswith("d") for v in self._state_analyser._state_label]
 #        for s in strings:
