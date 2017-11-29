@@ -133,6 +133,7 @@ class PlaygroundTrajTrackerAction(object):
             self._feedback.percentage = i*100./len(requested_traj.poses)
             rospy.loginfo("Done %i%%" % self._feedback.percentage)
             self._as.publish_feedback(self._feedback)
+                self._as.publish_feedback(self._feedback)
 
             rospy.sleep(duration); #wait until it's time to show the next point
 

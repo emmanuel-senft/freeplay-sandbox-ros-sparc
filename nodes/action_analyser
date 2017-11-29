@@ -69,10 +69,12 @@ class ActionAnalyser(object):
         self.on_action_proposed(a)
 
     def on_action_proposed(self, message):
-        print "got action"
+        if DEBUG:
+            print "got action"
         if len(self._actions) == 0:
             if not self.init_actions():
                 return 
+        print str(self._proposing_action) + " " + str(self._state_analyser._robot_touch) + " " + str( self._state_analyser._robot_speaks) + " " + str(self._preparing_action)
         if self._proposing_action or self._state_analyser._robot_touch or self._state_analyser._robot_speaks or self._preparing_action:
             return
         
@@ -83,7 +85,6 @@ class ActionAnalyser(object):
         action_id = message.action_id
         action_string = self._actions[action_id]
         action_strings = action_string.split("_")
-        print action_strings
 
         #Identify if action doable (if life of all items>0)
         for string in action_strings:
@@ -104,9 +105,6 @@ class ActionAnalyser(object):
                     
         message_out = ContinuousAction()
 
-        print len(self._state_analyser._state_label)
-        print len(state_mask)
-        print [self._state_analyser._state_label[i] for i,v in enumerate(state_mask) if v]
         if any(np.array(state_mask)==False):
             for string in [self._state_analyser._state_label[i] for i,v in enumerate(state_mask) if v]:
                 for s in string.split("_"):
@@ -137,14 +135,8 @@ class ActionAnalyser(object):
             if action_strings[2] not in message_out.strings:
                 message_out.strings.append(action_strings[2])
 
-            print "origin "
-            print self._state_analyser.get_pose(action_strings[1])
-            print "destination "
-            print goal
             goal = self._state_analyser.get_relative_pose(action_strings[1],goal)
             goal = goal.pose.position
-            print "delta " 
-            print goal
 
             message_out.pose.position.x = goal.x
             message_out.pose.position.y = goal.y
@@ -167,7 +159,8 @@ class ActionAnalyser(object):
     def on_selected_action(self, message):
         self._proposing_action = False
         self._preparing_action = True
-        print "action selected"
+        if DEBUG:
+            print "action selected"
         if len(self._actions) == 0:
             if not self.init_actions():
                 self._executing_action = False
@@ -249,8 +242,6 @@ class ActionAnalyser(object):
         mask[-2]=True
         mask[-3]=True
         mask[-4]=True
-        #if DEBUG:
-            #print mask
         return mask
 
     def publish_action(self, action, mask, reward):
