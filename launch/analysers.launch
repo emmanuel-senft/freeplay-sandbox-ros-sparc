@@ -1,6 +1,0 @@
-<launch>
-    <node pkg="freeplay_sparc" type="action_analyser" name="action_analyser" output="screen">
-    </node>
-    <node pkg="freeplay_sparc" type="state_analyser" name="state_analyser" output="screen">
-    </node>
-</launch>
