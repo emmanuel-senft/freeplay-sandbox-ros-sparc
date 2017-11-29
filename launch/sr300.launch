@@ -13,10 +13,11 @@
     <arg name="depth_width"     default="640" />
     <arg name="depth_height"    default="480" />
     <arg name="depth_fps"       default="30" />
+
+    <arg name="enable_ir"	default="false"/>
  
     <arg name="enable_audio"    default="false" /> <!-- if true, start audio capturing on the 2 cameras - you might have to set audio_device1 and audio_device2! -->
-    <arg name="audio_device1"   default="hw:3" /> <!-- the audio device for the first camera - check arecord -l -->
-    <arg name="audio_device2"   default="hw:2" /> <!-- the audio device for the second camera - check arecord -l -->
+    <arg name="audio_device1"   default="hw:4" /> <!-- the audio device for the first camera - check arecord -l -->
     <arg name="sample_rate"     default="16000" /> 
     <arg name="channels"        default="1" /> 
 
@@ -38,7 +39,7 @@
         <param name="depth/image_raw/compressedDepth/depth_max" type="double" value="2.0" />
         <param name="depth/image_raw/compressedDepth/png_level" type="int" value="3" />
 
-        <include if="$(arg enable_depth)" file="$(find realsense_camera)/launch/includes/nodelet_rgbd.launch.xml">
+        <include file="$(find realsense_camera)/launch/includes/nodelet_rgbd.launch.xml">
             <arg name="manager"                 value="/$(arg manager)" />
             <arg name="camera"                  value="$(arg camera1)" />
             <arg name="camera_type"             value="$(arg camera1_camera_type)" />
@@ -50,17 +51,8 @@
             <arg name="color_height"            value="$(arg color_height)" />
             <arg name="depth_fps"               value="$(arg depth_fps)" />
             <arg name="color_fps"               value="$(arg color_fps)" />
-        </include>
-
-        <include unless="$(arg enable_depth)" file="$(find realsense_camera)/launch/includes/nodelet_default.launch.xml">
-            <arg name="manager"                 value="/$(arg manager)" />
-            <arg name="camera"                  value="$(arg camera1)" />
-            <arg name="camera_type"             value="$(arg camera1_camera_type)" />
-            <arg name="serial_no"               value="$(arg camera1_serial_no)" />
-            <arg name="mode"                    value="$(arg mode)" />
-            <arg name="color_width"             value="$(arg color_width)" />
-            <arg name="color_height"            value="$(arg color_height)" />
-            <arg name="color_fps"               value="$(arg color_fps)" />
+	    <arg name="enable_depth"		value="$(arg enable_depth)" />
+	    <arg name="enable_ir"		value="$(arg enable_ir)" />
         </include>
 
         <node if="$(arg enable_audio)" name="audio_capture" pkg="audio_capture" type="audio_capture" required="true" output="screen">
