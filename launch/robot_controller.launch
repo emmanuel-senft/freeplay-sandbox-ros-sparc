@@ -24,8 +24,6 @@
             <remap from="/image" to="$(arg image)" />
         </node>
     </group>
-    <group unless="$(arg with_marker_localisation)">
-        <include file="$(find freeplay_sparc)/launch/robot_static_localisation.launch">
-        </include>
-    </group>
+    <include unless="$(arg with_marker_localisation)" file="$(find freeplay_sparc)/launch/robot_static_localisation.launch">
+    </include>
 </launch>
