@@ -1,0 +1,141 @@
+#!/usr/bin/env python
+'''
+Check if a set of points are in the field of view
+'''
+
+import rospy
+import tf2_ros
+import geometry_msgs.msg
+from std_msgs.msg import String
+import numpy as np
+import math
+
+import transformations
+
+import collections
+import time
+
+# simple ring buffer for temporal filtering of the gaze position
+gaze_buffer = collections.deque(maxlen=5)
+
+DEFAULT_REF_FRAME = "sandtray"
+DEFAULT_FACE_FRAME = "face_0"
+DEFAULT_GAZE_FRAME = "gazepose_0"
+
+SANDTRAY_WIDTH = .6
+SANDTRAY_HEIGHT = .3
+
+GAZE_POSE_TOPIC = DEFAULT_GAZE_FRAME
+
+#####
+### for correct viz, THESE VALUES NEED TO BE KEPT IN SYNC WITH THE ONE IN src/estimate_focus.cpp!
+
+# human field of view
+DEFAULT_FOV = 10. / 180 * math.pi
+
+
+br = tf2_ros.TransformBroadcaster()
+
+def _xyz_to_mat44(pos):
+    return transformations.translation_matrix((pos.x, pos.y, pos.z))
+
+def _xyzw_to_mat44(ori):
+    return transformations.quaternion_matrix((ori.x, ori.y, ori.z, ori.w))
+
+def to_mat4(trans):
+    M = np.dot(_xyz_to_mat44(trans.transform.translation),
+               _xyzw_to_mat44(trans.transform.rotation))
+    return M
+
+
+def normalize(vec):
+    norm=np.linalg.norm(vec)
+    if norm==0: 
+        return vec
+    return vec/norm
+
+def bridge():
+
+    rospy.init_node('gaze_sandtray_viz', anonymous=True)
+
+    reference_frame = rospy.get_param('~reference_frame', DEFAULT_REF_FRAME)
+    face_frame = rospy.get_param('~face_frame', DEFAULT_FACE_FRAME)
+    gaze_frame = rospy.get_param('~gaze_frame', DEFAULT_GAZE_FRAME)
+    fieldofview = rospy.get_param('~fov', DEFAULT_FOV)
+
+    tfBuffer = tf2_ros.Buffer()
+    listener = tf2_ros.TransformListener(tfBuffer)
+
+    posepub = rospy.Publisher(GAZE_POSE_TOPIC, geometry_msgs.msg.PoseStamped, queue_size=1)
+    eventpub = rospy.Publisher("sandtray/interaction_events", String, queue_size=5)
+
+    rate = rospy.Rate(10.0)
+    looking_sandtray = False
+    looking_robot = False
+    looking_other = False
+
+    while not rospy.is_shutdown():
+        try:
+            trans = tfBuffer.lookup_transform(reference_frame, face_frame, rospy.Time())
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
+            #rospy.logwarn("Could not find a transform between %s and %s: %s" % (reference_frame,face_frame,e))
+            rate.sleep()
+            continue
+
+
+        # from now on, everything takes place in the REF_FRAME reference frame
+
+        matrix = to_mat4(trans)
+
+        gaze_origin = np.array((trans.transform.translation.x, \
+                                trans.transform.translation.y, \
+                                trans.transform.translation.z))
+
+        gaze_vector = np.dot(matrix,[1,0,0,1])
+        gaze_vector = (gaze_vector / gaze_vector[3])[:3] - gaze_origin
+        gaze_vector = normalize(gaze_vector)
+
+        plane_normal = normalize(np.array((0,0,1)))
+
+        t = - (np.dot(gaze_origin, plane_normal)) / np.dot(gaze_vector, plane_normal)
+        
+        gaze_projection = gaze_origin + gaze_vector * t
+
+        gaze_buffer.append(gaze_projection[:2])
+
+        gaze = np.array(sum(gaze_buffer)/gaze_buffer.maxlen)
+
+        if np.all(gaze > [0,-SANDTRAY_HEIGHT]) and np.all(gaze < [SANDTRAY_WIDTH,0]):
+            looking_other = False
+            looking_robot = False
+            if not looking_sandtray:
+                looking_sandtray = True
+                eventpub.publish(String("looking_sandtray"))
+        else:
+            target_frames =["torso", "neck", "head"]
+            for target in target_frames:
+                try:
+                    target_vector = tfBuffer.lookup_transform(face_frame, target, rospy.Time()).transform.translation
+                    angle = math.atan2(math.sqrt(target_vector.z*target_vector.z+target_vector.y*target_vector.y),target_vector.x)
+                except:
+                    continue
+                if angle < DEFAULT_FOV:
+                    looking_other = False
+                    looking_sandtray = False
+                    if not looking_robot:
+                        looking_robot = True
+                        eventpub.publish(String("looking_robot"))
+                    break
+            else:
+                looking_robot = False
+                looking_sandtray = False
+                if not looking_other:
+                    looking_other = True
+                    eventpub.publish(String("looking_other"))
+
+
+        rate.sleep()
+
+if __name__ == '__main__':
+
+    bridge()

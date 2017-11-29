@@ -122,6 +122,7 @@ catkin_install_python(PROGRAMS
     nodes/nao_behaviours
     nodes/sandtray_gaze_viz
     nodes/transformations.py
+    nodes/point_gaze_check
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 install(FILES
