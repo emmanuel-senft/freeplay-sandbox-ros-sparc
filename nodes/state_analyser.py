@@ -20,7 +20,6 @@ from std_msgs.msg import String, Float32MultiArray, Int32MultiArray, MultiArrayD
 from nav_msgs.msg import OccupancyGrid
 from freeplay_sandbox_msgs.msg import ListFloatStamped
 from visualization_msgs.msg import MarkerArray, Marker
-import shapely.geometry 
 
 DEBUG = False
 
@@ -121,7 +120,7 @@ class StateAnalyser(object):
         self._state[index] = self._progression
         index+=1
 
-        #Starts trigger state
+        #Starts trigger states
         #Life of animals
         for value in self._life:
             self._state[index] = value
@@ -152,11 +151,6 @@ class StateAnalyser(object):
         index+=1
         self._state[index] = self.get_decay(self._step_last_death,10.)
 
-        #print "child touch" 
-        #print self._current_touches
-        #print "robot touch" 
-        #print self._robot_touch
-
         self.publish_states()
 
     def get_decay(self, step, parameter):
@@ -180,9 +174,10 @@ class StateAnalyser(object):
         self._state_pub.publish(message)
 
     def get_pose(self, item, reference=REFERENCE_FRAME):
-       # if item not in self._tl.getFrameStrings():
-       #     rospy.logwarn_throttle(20,"%s is not yet published." % item)
-       #     return None
+        #Was slowing down too much 
+        #if item not in self._tl.getFrameStrings():
+        #    rospy.logwarn_throttle(20,"%s is not yet published." % item)
+        #    return None
         if self._tl.canTransform(reference, item, rospy.Time(0)):
             (trans,rot) = self._tl.lookupTransform(reference, item, rospy.Time(0))
             return trans
@@ -257,7 +252,6 @@ class StateAnalyser(object):
         if arguments[0] == "blocking_speech_started":
             self._robot_speaks = True
 
-
     def init_label(self):
         for idx, character in enumerate(self._characters):
             for other in (self._characters+self._targets)[idx+1:]:
@@ -280,8 +274,6 @@ class StateAnalyser(object):
         self._state_label.append("last_feeding")
         self._state_label.append("last_death")
 
-        print len(self._state_label)
-
         self._state = np.zeros(len(self._state_label))
 
         self._step_last_characters_touched_child = self._step * np.ones(len(self._characters))
@@ -300,7 +292,6 @@ class StateAnalyser(object):
 
     def dist(self, a, b):
         return pow(a[0]-b[0],2)+pow(a[1]-b[1],2)
-
 
     def get_distance_objects(self, name1, name2):
         return self.dist(self.get_pose(name1),self.get_pose(name2))
@@ -370,7 +361,6 @@ class StateAnalyser(object):
 
     def find_empty_around_point(self, point):
         #Flip coordinates as table are accessed [y,x]
-        print "Point in: " + str(point)
         point = point[::-1]
         #Change coordinates to have tile
         scale = np.array([-self._map.shape[0] / PHYSICAL_MAP_HEIGHT, self._map.shape[1] / PHYSICAL_MAP_WIDTH])
@@ -379,7 +369,6 @@ class StateAnalyser(object):
         point = np.ndarray.astype(point, int)
 
         transit_point = point
-        print "Transit in: " + str(transit_point)
         radius = 0
         while not self.test_point(transit_point):
             radius += 1
@@ -396,13 +385,10 @@ class StateAnalyser(object):
                 transit_point=point+[i,-radius]
                 if self.test_point(transit_point):
                     break
-        print "Transit out: " + str(transit_point)
 
         transit_point = np.ndarray.astype(transit_point, int)
         transit_point = transit_point / scale
         transit_point = transit_point[::-1]
-
-        print "Point out: " + str(transit_point)
 
         return transit_point
 
@@ -413,7 +399,6 @@ class StateAnalyser(object):
             return not self._map[point[0], point[1]]
         except IndexError:
             return False
-
 
 if __name__ == "__main__":
 
