@@ -39,7 +39,7 @@ class ActionAnalyser(object):
         self._selected_action_sub = rospy.Subscriber("sparc/selected_action",ContinuousAction , self.on_selected_action)
 
         self._proposed_action_sub = rospy.Subscriber("sparc/proposed_action_dis",DiscreteAction, self.on_action_proposed)
-        self._rewarded_action_pub = rospy.Publisher("sparc/rewarded_action_dis", DiscreteAction, queue_size = 5)
+        self._selected_action_pub = rospy.Publisher("sparc/selected_action_dis", DiscreteAction, queue_size = 5)
 
         self._proposed_action_pub = rospy.Publisher("sparc/proposed_action", ContinuousAction, queue_size = 5)
         self._action_description_pub = rospy.Publisher("sparc/action_description", String, queue_size = 5)
@@ -98,7 +98,7 @@ class ActionAnalyser(object):
                     mask[index] = True
                     message.state_mask = mask
                     message.reward = -1
-                    self._rewarded_action_pub.publish(message)
+                    self._selected_action_pub.publish(message)
                     return
         self._proposing_action = True
                     
@@ -260,7 +260,7 @@ class ActionAnalyser(object):
         message.action_id = action
         message.state_mask = mask
         message.reward = reward
-        self._rewarded_action_pub.publish(message)
+        self._selected_action_pub.publish(message)
 
     def run(self):
         rospy.spin()

@@ -19,7 +19,7 @@ TRIGGER_NUMBER = 14
 class Actor(object):
     def __init__(self):
         self._state_sub = rospy.Subscriber("sparc/state", ListFloatStamped, self.on_state)
-        self._action_sub = rospy.Subscriber("sparc/rewarded_action_dis",DiscreteAction, self.on_action)
+        self._action_sub = rospy.Subscriber("sparc/selected_action_dis",DiscreteAction, self.on_action)
         self._event_sub = rospy.Subscriber("sparc/event", String, self.on_event)
 
         self._action_pub = rospy.Publisher("sparc/proposed_action_dis", DiscreteAction, queue_size = 5)
