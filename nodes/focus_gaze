@@ -150,7 +150,7 @@ def bridge():
         br.sendTransform(t)
 
 	gaze = np.array(gaze)
-        if np.all(gaze > [0,-SANDTRAY_HEIGHT]) and np.all(gaze < [SANDTRAY_WIDTH,0]):
+        if np.all(gaze > [-.1,-SANDTRAY_HEIGHT-.1]) and np.all(gaze < [SANDTRAY_WIDTH+.1,.1]):
             looking_other = False
             looking_robot = False
             looking_lost = False
