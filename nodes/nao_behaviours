@@ -189,7 +189,7 @@ def arm_between_pointing_posture():
     angleLists  = [[-random.randint(30,40) * TO_RAD],
                    [random.randint(50,70) * TO_RAD]]
     timeLists   = [[1.0],
-    	       [1.0]]
+               [1.0]]
     isAbsolute  = True
     motionProxy.angleInterpolation(names, angleLists, timeLists, isAbsolute) #blocking!
 
@@ -221,14 +221,26 @@ def on_pose(pose):
         rospy.loginfo("Got pose to look at, but I've fallen!");
         
 def on_backchannel(message):
-	pub_speech = rospy.Publisher("/speech", String, queue_size=5)
-	randNum = random.randint(1,5)
-	if message.data == "start"
-		msg = random.choice(["Ok","Sure","Umm?","Right","Yeah?"])
-	else
-		msg = random.choice(["Here?","Yes?","Here I think","There?","Ok?"])
-	
-	pub_speech.publish(String(msg))
+    pub_speech = rospy.Publisher("/speech", String, queue_size=5)
+    if (message.data == "start"):
+        msg = random.choice(["Ok","Sure","Umm?","Right","Yeah?"])
+    else
+        msg = random.choice(["Here?","Yes?","Here I think","There?","Ok?"])
+    
+    pub_speech.publish(String(msg))
+    
+def on_answer(message):
+    pub_speech = rospy.publisher("/speech", String, queue_size=5)
+    msg = random,choice(["sur la chaise", "sous la chaise", "derriere la chaise"])
+    pub_speech.publish(String(msg))
+    
+def on_quiz_feedback(message):
+    pub_speech = rospy.Publisher("/speech", String, queue_size=5)
+    if (message.data == "correct"):
+        msg = random.choice(["Well done!", "Good job!", "That's Great!"])
+    else
+        msg = random.choice(["It was a good try at least.", "It is tricky, but good attempt.", "Good effort!"])
+        
 
 class FallResponder(ALModule):
   """ Module to react to robotHasFallen events """
@@ -260,7 +272,9 @@ if __name__ == "__main__":
         rospy.logerr('error in handedness param')
 
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
-    sub_backchannel = rospy.Subscriber("nao/backchannel/standard"), String, on_backchannel)
+    sub_backchannel = rospy.Subscriber("nao/backchannel/standard"), String, on_backchannel, queue_size=1)
+    sub_quiz_answer = rospy.Subscriber("nao/prod-quiz/answer"), String, on_answer, queue_size=1)
+    sub_quiz_feedback = rospy.Subscriber("nao/prod-quiz/feedback"), String, on_quiz_feedback, queue_size=1)
 
     # We need this broker to be able to construct
     # NAOqi modules and subscribe to other modules
