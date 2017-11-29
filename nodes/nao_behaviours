@@ -19,62 +19,171 @@ import threading
 import signal
 import sys
 
-def look_at(targetpose):
-    reference_frame = "torso"
-    try:
-        targetpose.header.stamp = tl.getLatestCommonTime(targetpose.header.frame_id,reference_frame)
-        pose = tl.transformPose(reference_frame, targetpose)
-        target = [pose.pose.position.x,pose.pose.position.y,pose.pose.position.z]
-        trackerProxy.lookAt(target, 0, .3, False)
-    except:
-        return
+class Module(object):
+    def __init__(self, ip, port, effector):
+        self._ip = ip
+        self._port = port
+        self._effector = effector
 
-def point_at(targetpose):
-    reference_frame = "torso"
-    try:
-        targetpose.header.stamp = tl.getLatestCommonTime(targetpose.header.frame_id,reference_frame)
-        pose = tl.transformPose(reference_frame, targetpose)
-        target = [pose.pose.position.x,pose.pose.position.y,pose.pose.position.z]
-        trackerProxy.pointAt(effector, target, 0, .3)
-        pub_event.publish(String("pointing_finished"))
-    except:
-        return
+        self._pub_event = rospy.Publisher("/nao/events", String, queue_size=5)
+        self._sub_blocking_speech = rospy.Subscriber("/nao/blocking_speech", String, self.on_blocking_speech, queue_size=5)
+        self._sub_event = rospy.Subscriber("/nao/events", String, self.on_event)
+        self._sub_blink = rospy.Subscriber("/nao/blink", Empty, self.on_blink)
 
-def waiting():
-    try:
-        postureProxy.goToPosture("Stand", 0.5)
-        motionProxy.setBreathEnabled("Body",True)
-        trackerProxy.lookAt([1,0,.2], 0, .1,False)
-        trackerProxy.track("Face")
-        ledProxy.fadeRGB("FaceLeds",1,1,1,.1)
-    except:
-        return
+        self.create_proxies()   
 
-def on_blink(message):
-    ledProxy.fade("FaceLeds",0,.1)
-    ledProxy.fade("FaceLeds",1,.1)
+        self._motionProxy.setBreathConfig([["Bpm", 6], ["Amplitude", 0.9]])
+        self._motionProxy.setBreathEnabled("Body",False)
+        self._trackerProxy.registerTarget("Face",.2)
+        self._ledProxy.fadeRGB("FaceLeds",1,1,1,.1)
 
-def on_event(message):
-    if message.data == "motion_finished" or message.data == "att_finished":
-        waiting()
+        self._motionProxy.wakeUp()
+        self._postureProxy.goToPosture("Stand", 0.5)
+        self._trackerProxy.lookAt([0.5,0,-.2],0,.1,False)
 
-def on_pose(pose):
-    threading.Thread(target=point_at,args=(pose,)).start()
-    look_at(pose)
+        self._tl = tf.TransformListener()
 
-def on_blocking_speech(sentence):
-    pub_event.publish(String("blocking_speech_started-"+sentence.data))
-    ttsProxy.say(sentence.data)
-    pub_event.publish(String("blocking_speech_finished-"+sentence.data))
+        ### Check the robot is launched and properly localised wrt the sandtray
+        while not rospy.is_shutdown():
+            try:
+                t = self._tl.getLatestCommonTime("odom", "sandtray")
+                if self._tl.canTransform("odom", "sandtray",t):
+                    rospy.loginfo("Ok! Starting robot behaviours.")
+                    self._ttsProxy.say("Ready to go!")
+                    break
+                else:
+                    rospy.logwarn("No transform robot->sandtray. Robot not yet localised!")
+            except:
+                rospy.logwarn("No transform robot->sandtray. Robot not yet localised!")
+
+            rospy.sleep(0.5)
+
+        self._sub_poses = rospy.Subscriber("poses", PoseStamped, self.on_pose, queue_size=1) 
+        self._motionProxy.setBreathEnabled("Body",True)
+        self.waiting()
+
+        r = rospy.Rate(2)
+
+        while not rospy.is_shutdown():
+            r.sleep()
+
+        self._motionProxy.setBreathEnabled("Body",False)
+        self._trackerProxy.stopTracker()
+
+    def look_at(self, targetpose):
+        reference_frame = "torso"
+        try:
+            self._trackerProxy.stopTracker()
+            targetpose.header.stamp = self._tl.getLatestCommonTime(targetpose.header.frame_id,reference_frame)
+            pose = self._tl.transformPose(reference_frame, targetpose)
+            target = [pose.pose.position.x,pose.pose.position.y,pose.pose.position.z]
+        except:
+            print "error poses"
+            return
+        try:
+            self._trackerProxy.lookAt(target, 0, .3, False)
+        except:
+            try:
+                print "look error proxy destroyed"
+                self.create_proxies()
+                self._trackerProxy.lookAt(target, 0, .3, False)
+            except:
+                print "error cannot recreate proxy"
+                return
+            return
+
+    def point_at(self, targetpose):
+        reference_frame = "torso"
+        try:
+            targetpose.header.stamp = self._tl.getLatestCommonTime(targetpose.header.frame_id,reference_frame)
+            pose = self._tl.transformPose(reference_frame, targetpose)
+            target = [pose.pose.position.x,pose.pose.position.y,pose.pose.position.z]
+            print "point"
+            print target
+        except:
+            print "error poses"
+            return
+        try:
+            self._trackerProxy.pointAt(effector, target, 0, .3)
+            self._pub_event.publish(String("pointing_finished"))
+        except:
+            try:
+                print "point error proxy destroyed"
+                self.create_proxies()
+                self._trackerProxy.pointAt(effector, target, 0, .3)
+                self._pub_event.publish(String("pointing_finished"))
+            except:
+                print "error cannot recreate proxy"
+                self._pub_event.publish(String("pointing_failed"))
+                return
+            return
+
+    def waiting(self):
+        try:
+            self._postureProxy.goToPosture("Stand", 0.5)
+            self._trackerProxy.lookAt([1,0,.2], 0, .1,False)
+            self._trackerProxy.track("Face")
+        except:
+            try:
+                print "wait error proxy destroyed"
+                self.create_proxies()
+            except:
+                print "error cannot recreate proxy"
+                return
+            return
+
+    def on_blink(self, message):
+        try:
+            self._ledProxy.fade("FaceLeds",0,.1)
+            self._ledProxy.fade("FaceLeds",1,.1)
+        except:
+            try:
+                print "blink error proxy destroyed"
+                self.create_proxies()
+            except:
+                print "error cannot recreate proxy"
+                return
+            return
+
+
+    def on_event(self, message):
+        if message.data == "motion_finished" or message.data == "att_finished":
+            self.waiting()
+
+    def on_pose(self, pose):
+        threading.Thread(target=self.point_at,args=(pose,)).start()
+        self.look_at(pose)
+
+    def on_blocking_speech(self, sentence):
+        self._pub_event.publish(String("blocking_speech_started-"+sentence.data))
+        try:
+            self._ttsProxy.say(sentence.data)
+        except:
+            try:
+                print "say error proxy destroyed"
+                self.create_proxies()
+                self._ttsProxy.say(sentence.data)
+            except:
+                print "error cannot recreate proxy"
+
+        self._pub_event.publish(String("blocking_speech_finished-"+sentence.data))
+
+    def create_proxies(self):
+        self._motionProxy = ALProxy("ALMotion", self._ip, self._port);
+        self._memoryProxy = ALProxy("ALMemory", self._ip, self._port);
+        self._ttsProxy = ALProxy("ALTextToSpeech", self._ip, self._port);
+        self._postureProxy = ALProxy("ALRobotPosture", self._ip, self._port)
+        self._trackerProxy = ALProxy("ALTracker", self._ip, self._port)
+        self._ledProxy = ALProxy("ALLeds", self._ip, self._port)
 
 def signal_handler(signal, frame):
     rospy.signal_shutdown("press ctrl-c")
 
+
 if __name__ == "__main__":
     rospy.init_node("nao_behaviours");
     
-    POSES_TOPIC = rospy.get_param('~poses_output_topic','poses')
-    NAO_IP = rospy.get_param('~nao_ip','127.0.0.1')
+    ip = rospy.get_param('~nao_ip','127.0.0.1')
     port = 9559
     NAO_HANDEDNESS = rospy.get_param('~nao_handedness','right')
     if(NAO_HANDEDNESS.lower()=='right'):
@@ -84,53 +193,5 @@ if __name__ == "__main__":
     else: 
         rospy.logerr('error in handedness param')
 
-    pub_speech = rospy.Publisher("/speech", String, queue_size=5)
-    pub_event = rospy.Publisher("/nao/events", String, queue_size=5)
-    sub_blocking_speech = rospy.Subscriber("/nao/blocking_speech", String, on_blocking_speech, queue_size=5)
-    sub_event = rospy.Subscriber("/nao/events", String, on_event)
-    sub_blink = rospy.Subscriber("/nao/blink", Empty, on_blink)
+    module = Module(ip,port, effector)
 
-    motionProxy = ALProxy("ALMotion", NAO_IP, port);
-    memoryProxy = ALProxy("ALMemory", NAO_IP, port);
-    ttsProxy = ALProxy("ALTextToSpeech", NAO_IP, port);
-    postureProxy = ALProxy("ALRobotPosture", NAO_IP, port)
-    trackerProxy = ALProxy("ALTracker", NAO_IP, port)
-    ledProxy = ALProxy("ALLeds", NAO_IP, port)
-    
-    motionProxy.setBreathConfig([["Bpm", 6], ["Amplitude", 0.9]])
-    motionProxy.setBreathEnabled("Body",False)
-    trackerProxy.registerTarget("Face",.2)
-    ledProxy.fadeRGB("FaceLeds",1,1,1,.1)
-
-    motionProxy.wakeUp()
-    postureProxy.goToPosture("Stand", 0.5)
-    trackerProxy.lookAt([0.5,0,-.2],0,.1,False)
-
-    tl = tf.TransformListener()
-
-    ### Check the robot is launched and properly localised wrt the sandtray
-    while not rospy.is_shutdown():
-        try:
-            t = tl.getLatestCommonTime("odom", "sandtray")
-            if tl.canTransform("odom", "sandtray",t):
-                rospy.loginfo("Ok! Starting robot behaviours.")
-                pub_speech.publish(String("Ready to go!"))
-                break
-            else:
-                rospy.logwarn("No transform robot->sandtray. Robot not yet localised!")
-        except:
-            rospy.logwarn("No transform robot->sandtray. Robot not yet localised!")
-
-        rospy.sleep(0.5)
-
-    sub_poses = rospy.Subscriber(POSES_TOPIC, PoseStamped, on_pose, queue_size=1) 
-    motionProxy.setBreathEnabled("Body",True)
-    waiting()
-
-    r = rospy.Rate(2)
-
-    while not rospy.is_shutdown():
-        r.sleep()
-
-    motionProxy.setBreathEnabled("Body",False)
-    trackerProxy.stopTracker()
