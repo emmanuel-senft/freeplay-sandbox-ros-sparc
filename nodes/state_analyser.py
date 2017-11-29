@@ -69,6 +69,10 @@ class StateAnalyser(object):
         self._step_last_characters_touched_child = []
         self._step_last_characters_touched_robot = []
 
+        self._child_focus = []
+        self._step_last_focus = []
+        self._focus_labels = ["sandtray", "robot", "other"]
+
         self._game_running = False
 
         self._xmax = 0
@@ -118,15 +122,27 @@ class StateAnalyser(object):
         index+=1
 
         #Starts trigger state
+        #Life of animals
         for value in self._life:
             self._state[index] = value
             index+=1
 
+        #Focus of attention
+        for idx,v in enumerate(self._child_focus):
+            if v:
+                self._state[index] = 1
+            else:
+                self._state[index] = self.get_decay(self._step_last_focus[idx],10.)
+            index+=1
+
+        #Touches
         if self._current_touches > 0:
             self._state[index] = 1
         else:
             self._state[index] = self.get_decay(self._step_last_action_child,10.)
         index+=1
+
+        #Actions
         if self._robot_speaks or self._robot_touch:
             self._state[index] = 1
         else:
@@ -222,6 +238,13 @@ class StateAnalyser(object):
             self._step_last_death = self._step
             self._characters_touched_child[self._characters.index(arguments[1])] = False
             self._characters_touched_robot[self._characters.index(arguments[1])] = False
+        elif arguments[0] == "looking":
+            for idx,l in enumerate(self._focus_labels):
+                if l == arguments[1]:
+                    self._child_focus[idx] = True
+                elif self._child_focus[idx]:
+                    self._child_focus[idx] = False
+                    self._step_last_focus[idx] = self._step
 
         if len(self._characters) > 0 and len(self._targets) > 0 and not self._initialised:
             self.init_label()
@@ -250,6 +273,8 @@ class StateAnalyser(object):
         #State used for trigger
         for v in self._targets + self._characters: 
             self._state_label.append("l_"+v)
+        for s in self._focus_labels:
+            self._state_label.append("f_"+s)
         self._state_label.append("last_child_action")
         self._state_label.append("last_robot_action")
         self._state_label.append("last_feeding")
@@ -259,10 +284,12 @@ class StateAnalyser(object):
 
         self._state = np.zeros(len(self._state_label))
 
-        self._step_last_characters_touched_child = np.ones(len(self._characters))
-        self._step_last_characters_touched_robot = np.ones(len(self._characters))
+        self._step_last_characters_touched_child = self._step * np.ones(len(self._characters))
+        self._step_last_characters_touched_robot = self._step * np.ones(len(self._characters))
+        self._step_last_focus = self._step * np.ones(len(self._focus_labels))
         self._characters_touched_child = np.full(len(self._characters), False, dtype=bool)
         self._characters_touched_robot = np.full(len(self._characters), False, dtype=bool)
+        self._child_focus =  np.full(len(self._focus_labels), False, dtype=bool)
 
         self._initialised = True
 
