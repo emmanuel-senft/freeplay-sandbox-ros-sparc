@@ -28,7 +28,6 @@ class Player(object):
         self._event_sub = rospy.Subscriber("sandtray/interaction_events", String, self.on_event)
         self._nao_event_sub = rospy.Subscriber("nao/events", String, self.on_nao_event)
         self._motion = actionlib.SimpleActionClient('move_sandbox_items', freeplay_sandbox_msgs.msg.PlaygroundNavigationAction)
-        self._speech_pub = rospy.Publisher("speech", String, queue_size = 5)
         self._blocking_speech_pub = rospy.Publisher("nao/blocking_speech", String, queue_size = 5)
         self._poses_pub = rospy.Publisher("poses", PoseStamped, queue_size = 5)
         self._event_pub = rospy.Publisher("nao/events", String, queue_size = 5)
@@ -83,7 +82,7 @@ class Player(object):
             self._blocking_speech_pub.publish(String(self.one_among_many(self._sentences_look, self._sentences_look_said)+item.split("-")[0]))
             message = PoseStamped()
             message.header.frame_id = item
-            message.header.stamp = rospy.Time.now()
+            message.header.stamp = rospy.Time(0)
             self._poses_pub.publish(message)
             self._waiting_pointing=action.type
 
