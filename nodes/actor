@@ -14,7 +14,7 @@ import signal, sys
 import os
 
 DEBUG = False
-TRIGGER_NUMBER = 14
+DEFAULT_TRIGGER_NUMBER = 17
 
 class Actor(object):
     def __init__(self):
@@ -23,6 +23,8 @@ class Actor(object):
         self._event_sub = rospy.Subscriber("sparc/event", String, self.on_event)
 
         self._action_pub = rospy.Publisher("sparc/proposed_action_dis", DiscreteAction, queue_size = 5)
+        self._trigger_number = rospy.get_param('~trigger_number', DEFAULT_TRIGGER_NUMBER)
+
         self._actions = []
         self._trigger_states = []
 
@@ -47,7 +49,7 @@ class Actor(object):
     def check_trigger(self):
         if len(self._trigger_states)==0:
             return
-        similarities = self.get_similarity_states(self._trigger_states,self._state[-TRIGGER_NUMBER:])
+        similarities = self.get_similarity_states(self._trigger_states,self._state[-self._trigger_number:])
         if max(similarities) > .98:
             self.select_action()
 
@@ -159,9 +161,9 @@ class Actor(object):
             self._actions.append(new_action)
         if reward > 0:
             if len(self._trigger_states) == 0:
-                self._trigger_states=ma.reshape(state[-TRIGGER_NUMBER:],(1,TRIGGER_NUMBER))
+                self._trigger_states=ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
             else:
-                reshaped_trigger_states = ma.reshape(state[-TRIGGER_NUMBER:],(1,TRIGGER_NUMBER))
+                reshaped_trigger_states = ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
                 self._trigger_states = ma.append(self._trigger_states,reshaped_trigger_states, axis=0) 
 
 class Action(object):
