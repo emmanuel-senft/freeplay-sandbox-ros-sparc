@@ -1,7 +1,7 @@
 <launch>
      <!-- creates an action server to move sandbox objects to specific positions, 
          using the path planner -->
-    <node pkg="freeplay_sparc" type="move_sandbox_items" name="move_sandbox_items" required="true" />
+    <node pkg="freeplay_sparc" type="move_sandbox_items" name="move_sandbox_items" required="true" output="screen" />
    <!-- creates an action server to move sandbox objects to specific positions, 
          using the path planner -->
     <node pkg="freeplay_sparc" type="woz_play" name="woz_play" required="true" output="screen"/>

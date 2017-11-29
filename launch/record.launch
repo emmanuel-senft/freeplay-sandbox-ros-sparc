@@ -3,18 +3,23 @@
     <arg name="duration"             default="1m" />
     <arg name="output_file"          default="foodchain" />
 
-    <arg name="topics" default="/tf
+    <arg name="topics" default=
+        "/tf
+        /tf_static
         /nao/blocking_speech
         /nao/events
         /sandtray/interaction_events
         /sandtray/background/image
+        /sandtray/background/camera_info
         /sparc/state
         /sparc/life
         /sparc/event
         /sparc/selected_action
-        /sparc/rewarded_action_dis
+        /sparc/selected_action_dis
         /sparc/proposed_action
         /sparc/proposed_action_dis
+        /sparc/action_description
+        /poses
         " 
         />
 
