@@ -34,6 +34,7 @@ class Actor(object):
         self._state = None
 
         self._use_files = rospy.get_param('~use_file',True)
+        self._file_name = rospy.get_param('~file_name', os.path.expanduser('~') + "/Documents/sparc/data.json")
         print "using files " + str(self._use_files)
         if self._use_files:
             try:
@@ -129,11 +130,11 @@ class Actor(object):
                 points.append(item)
             action["points"]=points
             data.append(action)
-        with open('/home/senft/data.json','w') as outfile:
+        with open(self._file_name,'w') as outfile:
             json.dump(data, outfile)
 
     def load_json(self):
-        with open('/home/senft/data.json','r') as infile:
+        with open(self._file_name,'r') as infile:
             data=json.load(infile)
             for a in data:
                 id = a["id"]
