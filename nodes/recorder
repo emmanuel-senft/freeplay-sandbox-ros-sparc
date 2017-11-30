@@ -22,7 +22,7 @@ class Launcher(object):
                 self._p.kill()
 
     def record(self):
-        p = os.path.expanduser('~')+"/Documents/bags/bag"+datetime.datetime.now().isoformat()
+        p = os.path.expanduser('~')+"/Documents/foodchain-data/bags/"+datetime.datetime.now().isoformat()
         p = p.split(".")[0]
         print p
 

@@ -32,7 +32,7 @@ class Actor(object):
         self._state = None
 
         self._use_files = rospy.get_param('~use_file',True)
-        self._file_name = rospy.get_param('~file_name', os.path.expanduser('~') + "/Documents/sparc/data.json")
+        self._file_name = rospy.get_param('~file_name', os.path.expanduser('~') + "/Documents/foodchain-data/sparc/data.json")
         print "using files " + str(self._use_files)
         if self._use_files:
             try:
