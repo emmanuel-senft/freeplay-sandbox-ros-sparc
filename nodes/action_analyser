@@ -157,7 +157,7 @@ class ActionAnalyser(object):
          return self._state_analyser.get_point_action(masked_action)
 
     def on_selected_action(self, message):
-        self._proposing_action = False
+        Timer(2, self.reset_prop).start()
         self._preparing_action = True
         if DEBUG:
             print "action selected"
@@ -256,7 +256,7 @@ class ActionAnalyser(object):
     def on_event(self, event):
         arguments = event.data.split("_")
         if arguments[0] == "reset":
-            self._proposing_action = False
+            Timer(2, self.reset_prop).start()
         elif arguments[0] == "stop":
             self._proposing_action = False
             self._preparing_action = False
@@ -266,6 +266,9 @@ class ActionAnalyser(object):
         self._state_analyser._stopping = True
         self._state_analyser._timer.cancel()
         sys.exit(0)
+
+    def reset_prop(self):
+        self._proposing_action = False
         
 if __name__ == "__main__":
 
