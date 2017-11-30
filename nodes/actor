@@ -29,8 +29,6 @@ class Actor(object):
         self._actions = []
         self._trigger_states = []
 
-        self._has_moved = False
-        self._moving_Timer = threading.Timer(10, self.reset_has_moved)
         self._state = None
 
         self._use_files = rospy.get_param('~use_file',True)
@@ -107,10 +105,6 @@ class Actor(object):
         message.reward = max(weighted_rewards)
 
         self._action_pub.publish(message)
-
-    def reset_has_moved(self):
-        self._has_moved = False
-        self._moving_Timer = threading.Timer(10, self.reset_has_moved)
 
     def run(self):
         rospy.spin()
