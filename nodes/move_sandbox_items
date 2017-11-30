@@ -58,8 +58,9 @@ class PlaygroundTrajTrackerAction(object):
         self._as.start()
         self._event = threading.Event()
         self._sub_event = rospy.Subscriber("nao/events", String, self.on_event)
-        self._sub_event = rospy.Subscriber("sandtray/interaction_events", String, self.on_interaction_event)
+        self._sub_event_interaction = rospy.Subscriber("sandtray/interaction_events", String, self.on_interaction_event)
         self._pub_event = rospy.Publisher("nao/events", String, queue_size = 5)
+        self._pub_event_interaction = rospy.Publisher("sandtray/interaction_events", String, queue_size = 5)
 
     def execute_cb(self, goal):
         # helper variables
@@ -94,6 +95,9 @@ class PlaygroundTrajTrackerAction(object):
         if success:
             rospy.loginfo('%s: Succeeded' % self._action_name)
             self._as.set_succeeded(self._result)
+
+        if len(path.poses) <= 1:
+            self._pub_event_interaction.publish(String("robotrelease_undefined"))
 
     def play_traj(self,requested_traj):
 
@@ -132,10 +136,7 @@ class PlaygroundTrajTrackerAction(object):
             # publish the feedback
             self._feedback.percentage = i*100./len(requested_traj.poses)
             rospy.loginfo("Done %i%%" % self._feedback.percentage)
-            try:
-                self._as.publish_feedback(self._feedback)
-            except:
-                print "error with feedback"
+            self._as.publish_feedback(self._feedback)
 
             rospy.sleep(duration); #wait until it's time to show the next point
 
