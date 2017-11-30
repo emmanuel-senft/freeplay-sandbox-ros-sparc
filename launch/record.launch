@@ -1,6 +1,6 @@
 
 <launch>
-    <arg name="duration"             default="1m" />
+    <arg name="duration"             default="40m" />
     <arg name="output_file"          default="foodchain" />
 
     <arg name="topics" default=
@@ -9,8 +9,6 @@
         /nao/blocking_speech
         /nao/events
         /sandtray/interaction_events
-        /sandtray/background/image
-        /sandtray/background/camera_info
         /sparc/state
         /sparc/life
         /sparc/event
