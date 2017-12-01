@@ -191,7 +191,16 @@ class StateAnalyser(object):
         if arguments[0] == "start" or arguments[0] == "running":
             self._game_running = True
             self._progression = float(arguments[1])/float(arguments[2])
+            self._step_last_characters_touched_child = np.zeros(len(self._characters))
+            self._step_last_characters_touched_robot = np.zeros(len(self._characters))
+            self._step_last_focus = np.zeros(len(self._focus_labels))
+            self._characters_touched_child = np.full(len(self._characters), False, dtype=bool)
+            self._characters_touched_robot = np.full(len(self._characters), False, dtype=bool)
+            self._child_focus =  np.full(len(self._focus_labels), False, dtype=bool)
+            self._step_last_feeding = 0
+            self._step_last_death = 0
             self.get_state()
+
         elif arguments[0] == "stop":
             self._game_running = False
             self._robot_touch = False
