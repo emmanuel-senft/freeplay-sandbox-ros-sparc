@@ -207,19 +207,19 @@ class StateAnalyser(object):
         elif arguments[0] == "childrelease":
             self._current_touches -= 1
             #If the character moves while the child release, undefined is sent
-            if arguments[1] == "undefined":
-                idx = np.where(self._characters_touched_child == True)
-            else:
+            try:
                 idx = self._characters.index(arguments[1])
+            except:
+                idx = np.where(self._characters_touched_child == True)
             self._step_last_characters_touched_child[idx] = self._step
             self._characters_touched_child[idx]=False
             if self._current_touches == 0:
                 self._step_last_action_child = self._step
         elif  arguments[0] == "robotrelease":
-            if arguments[1] == "undefined":
-                idx = np.where(self._characters_touched_robot == True)
-            else:
+            try:
                 idx = self._characters.index(arguments[1])
+            except:
+                idx = np.where(self._characters_touched_robot == True)
             self._robot_touch = False
             self._characters_touched_robot[idx]=False
             self._step_last_characters_touched_robot[idx] = self._step
