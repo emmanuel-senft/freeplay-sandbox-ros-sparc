@@ -78,6 +78,9 @@ class Player(object):
             self._motion.send_goal(goal)
 
         if action.type == "att":
+            if self._moving_item is not None:
+                self.event_release.clear()
+                self._motion.cancel_goal()
             item = action.header.frame_id
             self._blocking_speech_pub.publish(String(self.one_among_many(self._sentences_look, self._sentences_look_said)+item.split("-")[0]))
             message = PoseStamped()
