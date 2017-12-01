@@ -301,19 +301,19 @@ if __name__ == "__main__":
 
     ### Check the robot is launched and properly localised wrt the sandtray
     while not rospy.is_shutdown():
-        if not tl.frameExists("/odom"):
-            rospy.logwarn("Waiting for frame /odom to be published...")
-        else:
-            try:
-                t = tl.getLatestCommonTime("odom", "sandtray")
-                if tl.canTransform("odom", "sandtray",t):
-                    rospy.loginfo("Ok! Starting robot behaviours.")
-                    pub_speech.publish(String("Ready to go!"))
-                    break
-                else:
-                    rospy.logwarn("No transform robot->sandtray. Robot not yet localised!")
-            except:
+        #if not tl.frameExists("/odom"):
+        #    rospy.logwarn("Waiting for frame /odom to be published...")
+        #else:
+        try:
+            t = tl.getLatestCommonTime("odom", "sandtray")
+            if tl.canTransform("odom", "sandtray",t):
+                rospy.loginfo("Ok! Starting robot behaviours.")
+                pub_speech.publish(String("Ready to go!"))
+                break
+            else:
                 rospy.logwarn("No transform robot->sandtray. Robot not yet localised!")
+        except:
+            rospy.logwarn("No transform robot->sandtray. Robot not yet localised!")
 
         rospy.sleep(0.5)
 
