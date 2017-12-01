@@ -16,6 +16,7 @@ import tf
 
 from geometry_msgs.msg import PoseStamped
 from visualization_msgs.msg import Marker
+from std_msgs.msg import String
 
 import freeplay_sandbox_msgs.msg
 import freeplay_sandbox_msgs.srv
