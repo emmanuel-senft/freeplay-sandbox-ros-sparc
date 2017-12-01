@@ -272,9 +272,9 @@ if __name__ == "__main__":
         rospy.logerr('error in handedness param')
 
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
-    sub_backchannel = rospy.Subscriber("nao/backchannel/standard"), String, on_backchannel, queue_size=1)
-    sub_quiz_answer = rospy.Subscriber("nao/prod-quiz/answer"), String, on_answer, queue_size=1)
-    sub_quiz_feedback = rospy.Subscriber("nao/prod-quiz/feedback"), String, on_quiz_feedback, queue_size=1)
+    sub_backchannel = rospy.Subscriber("nao/backchannel/standard", String, on_backchannel, queue_size=1)
+    sub_quiz_answer = rospy.Subscriber("nao/prod-quiz/answer", String, on_answer, queue_size=1)
+    sub_quiz_feedback = rospy.Subscriber("nao/prod-quiz/feedback", String, on_quiz_feedback, queue_size=1)
 
     # We need this broker to be able to construct
     # NAOqi modules and subscribe to other modules
