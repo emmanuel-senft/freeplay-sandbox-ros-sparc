@@ -104,7 +104,7 @@ class PlaygroundTrajTrackerAction(object):
         #wait for robot to get to starting point
         rospy.sleep(requested_traj.poses[0].header.stamp.to_sec()); 
 
-		self._pub_backchannel.publish(String("start"))
+        self._pub_backchannel.publish(String("start"))
 
         rospy.loginfo("Starting to play trajectory!")
 
@@ -139,7 +139,7 @@ class PlaygroundTrajTrackerAction(object):
         written_points.append(p)
         visualize_traj(written_points)
 
-		self._pub_backchannel.publish(String("finish"))
+        self._pub_backchannel.publish(String("finish"))
 
         return True
 
