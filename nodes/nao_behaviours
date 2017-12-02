@@ -226,12 +226,11 @@ def on_backchannel(message):
         msg = random.choice(["Ok","Sure","Umm?","Right","Yeah?"])
     else:
         msg = random.choice(["Here?","Yes?","Here I think","There?","Ok?"])
-    
     pub_speech.publish(String(msg))
     
 def on_answer(message):
-    pub_speech = rospy.publisher("/speech", String, queue_size=5)
-    msg = random,choice(["sur la chaise", "sous la chaise", "derriere la chaise"])
+    pub_speech = rospy.Publisher("/speech", String, queue_size=5)
+    msg = random.choice(["sur la chaise", "sous la chaise", "derriere la chaise"])
     pub_speech.publish(String(msg))
     
 def on_quiz_feedback(message):
@@ -240,6 +239,7 @@ def on_quiz_feedback(message):
         msg = random.choice(["Well done!", "Good job!", "That's Great!"])
     else:
         msg = random.choice(["It was a good try at least.", "It is tricky, but good attempt.", "Good effort!"])
+    pub_speech.publish(String(msg))
         
 
 class FallResponder(ALModule):
