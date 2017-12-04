@@ -48,7 +48,7 @@ class Actor(object):
         if len(self._trigger_states)==0:
             return
         similarities = self.get_similarity_states(self._trigger_states,self._state[-self._trigger_number:])
-        if max(similarities) > .98:
+        if np.nanmax(similarities) > .98:
             self.select_action()
 
     def on_event(self, message):
@@ -69,7 +69,7 @@ class Actor(object):
     # Similarity (euclidian distance normalised by the number of defined dimensions)
     # with x a masked array and y a vector
     def get_similarity_states(self, x, y):
-        similarity = 1-np.divide(np.sum(np.square(x-y),axis=1),np.sum(~x.mask,axis=1))
+        similarity = np.array(1-np.divide(np.sum(np.square(x-y),axis=1),np.sum(~x.mask,axis=1)),dtype=np.float32)
         return similarity
 
     def select_action(self):
@@ -81,15 +81,16 @@ class Actor(object):
         indexes = np.zeros(len(self._actions),dtype=int)
         for i, action in enumerate(self._actions):
             similarity = self.get_similarity_states(action._states,self._state)
-            max_similarity = max(similarity)
-            idx = len(similarity) - 1 - np.argmax(similarity[::-1])
+            max_similarity = np.nanmax(similarity)
+
+            idx = len(similarity) - 1 - np.nanargmax(similarity[::-1])
             reward = action._rewards[idx]
             weighted_rewards[i] = reward * max_similarity
             indexes[i] = idx
-        if max(weighted_rewards)<=0:
+        if np.nanmax(weighted_rewards)<=0:
             print "no good candidate"
             return
-        index_selected_action = np.argmax(weighted_rewards)
+        index_selected_action = np.nanargmax(weighted_rewards)
         proposed_action = self._actions[index_selected_action]
 
         if len(self._actions[index_selected_action]._states[indexes[index_selected_action]].mask.shape) == 0:
@@ -102,7 +103,7 @@ class Actor(object):
         message.header.stamp = rospy.Time(0)
         message.action_id = self._actions[index_selected_action]._action
         message.state_mask=mask
-        message.reward = max(weighted_rewards)
+        message.reward = np.nanmax(weighted_rewards)
 
         self._action_pub.publish(message)
 

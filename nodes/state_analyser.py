@@ -303,7 +303,11 @@ class StateAnalyser(object):
         return pow(a[0]-b[0],2)+pow(a[1]-b[1],2)
 
     def get_distance_objects(self, name1, name2):
-        return self.dist(self.get_pose(name1),self.get_pose(name2))
+        pose1 = self.get_pose(name1)
+        pose2 = self.get_pose(name2)
+        if pose1 is None or pose2 is None or pose1[0] < 0 or pose2[0] < 0:
+            return float("NaN")
+        return self.dist(pose1,pose2)
 
     def get_relative_pose(self, item, goal):
         pose = self.get_pose(item)
