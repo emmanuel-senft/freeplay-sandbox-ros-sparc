@@ -20,6 +20,7 @@ REFERENCE_FRAME="/sandtray"
 
 class Player(object):
     def __init__(self):
+        self._init = False
         self._tl = tf.TransformListener()
         rospy.sleep(0.5) # sleep a bit to make sure the TF cache is filled
 
@@ -48,13 +49,13 @@ class Player(object):
         self._sentences_move_said = []
         self._sentences_rules = ["Animals need to eat to stay alive." , "Move the animals to feed them."]
         self._sentences_rules_said = []
-
+        self._init = True
 
     def run(self):
         rospy.spin()
 
     def on_action_received(self,action):
-        if action.reward <= 0:
+        if action.reward <= 0 or not self._init:
             return
         if action.type.startswith("mv"):
             item = action.header.frame_id
@@ -100,6 +101,8 @@ class Player(object):
 
     #To add description to a move
     def on_description(self, message):
+        if not self._init:
+            return
         lst = message.data.split("_")
         sentence = self.one_among_many(self._sentences_move, self._sentences_move_said)
         sentence = sentence.replace(" x ", " "+lst[1]+" ")
