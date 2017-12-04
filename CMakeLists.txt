@@ -123,6 +123,7 @@ catkin_install_python(PROGRAMS
     nodes/sandtray_gaze_viz
     nodes/transformations.py
     nodes/focus_gaze
+    nodes/recorder
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 install(FILES

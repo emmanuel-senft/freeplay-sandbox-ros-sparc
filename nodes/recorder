@@ -6,6 +6,7 @@ import subprocess32
 import sys
 import os
 import datetime
+import signal
 
 class Launcher(object):
     def __init__(self):
@@ -19,7 +20,7 @@ class Launcher(object):
         elif message.data == "stoprecord":
             print "stop"
             if not self._p is None:
-                self._p.kill()
+                self._p.send_signal(signal.SIGINT)
 
     def record(self):
         p = os.path.expanduser('~')+"/Documents/foodchain-data/bags/"+datetime.datetime.now().isoformat()
