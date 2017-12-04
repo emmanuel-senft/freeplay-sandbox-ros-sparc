@@ -120,8 +120,6 @@ class Player(object):
         if msg.data.startswith("robotrelease_"):
             self._moving_item = None
             self.event_release.set()
-        if msg.data == "stop":
-            self._motion.cancel_goal()
 
     def on_nao_event(self, msg):
         if msg.data == "blocking_speech_finished" and self._waiting_speech:

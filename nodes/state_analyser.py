@@ -193,7 +193,7 @@ class StateAnalyser(object):
             self._child_focus =  np.full(len(self._focus_labels), False, dtype=bool)
             self.get_state()
 
-        elif arguments[0] == "stop":
+        elif arguments[0] == "endround":
             self._game_running = False
             self._robot_touch = False
         elif arguments[0] == "childrelease":
@@ -331,6 +331,8 @@ class StateAnalyser(object):
         if dist > threshold:
             point = -math.sqrt(threshold/dist)*(goal-origin)+goal
             point = self.find_empty_around_point(point)
+            if point is None:
+                return None
             if self.dist(origin, goal) < self.dist(point, goal):
                 return None
         else:
@@ -358,7 +360,10 @@ class StateAnalyser(object):
         #Flip coordinates as table are accessed [y,x]
         point = point[::-1]
         #Change coordinates to have tile
-        scale = np.array([-self._map.shape[0] / PHYSICAL_MAP_HEIGHT, self._map.shape[1] / PHYSICAL_MAP_WIDTH])
+        try:
+            scale = np.array([-self._map.shape[0] / PHYSICAL_MAP_HEIGHT, self._map.shape[1] / PHYSICAL_MAP_WIDTH])
+        except:
+            return None
         point = point * scale
         #Cast to int
         point = np.ndarray.astype(point, int)
