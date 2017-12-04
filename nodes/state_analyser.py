@@ -58,18 +58,11 @@ class StateAnalyser(object):
         self._eye_pose = (0,0)
         self._progression = 0
         self._step = 0
-        self._step_last_action_child = 0
-        self._step_last_action_robot = 0
-        self._step_last_feeding = 0
-        self._step_last_death = 0
 
         self._characters_touched_child = []
         self._characters_touched_robot = []
-        self._step_last_characters_touched_child = []
-        self._step_last_characters_touched_robot = []
 
         self._child_focus = []
-        self._step_last_focus = []
         self._focus_labels = ["sandtray", "robot", "other"]
 
         self._game_running = False
@@ -107,14 +100,14 @@ class StateAnalyser(object):
             if self._characters_touched_child[idx]:
                 self._state[index] = 1
             else:
-                self._state[index] = self.get_decay(self._step_last_characters_touched_child[idx],10.)
+                self._state[index] = self.get_decay_recursive(self._state[index])
             index+=1
         #Last time a character is touched by the robot
         for idx,character in enumerate(self._characters):
             if self._characters_touched_robot[idx]:
                 self._state[index] = 1
             else:
-                self._state[index] = self.get_decay(self._step_last_characters_touched_robot[idx],10.)
+                self._state[index] = self.get_decay_recursive(self._state[index])
             index+=1
 
         self._state[index] = self._progression
@@ -131,30 +124,33 @@ class StateAnalyser(object):
             if v:
                 self._state[index] = 1
             else:
-                self._state[index] = self.get_decay(self._step_last_focus[idx],10.)
+                self._state[index] = self.get_decay_recursive(self._state[index])
             index+=1
 
         #Touches
         if self._current_touches > 0:
             self._state[index] = 1
         else:
-            self._state[index] = self.get_decay(self._step_last_action_child,10.)
+            self._state[index] = self.get_decay_recursive(self._state[index])
         index+=1
 
         #Actions
         if self._robot_speaks or self._robot_touch:
             self._state[index] = 1
         else:
-            self._state[index] = self.get_decay(self._step_last_action_robot,10.)
+            self._state[index] = self.get_decay_recursive(self._state[index])
         index+=1
-        self._state[index] = self.get_decay(self._step_last_feeding,10.)
+        self._state[index] = self.get_decay_recursive(self._state[index])
         index+=1
-        self._state[index] = self.get_decay(self._step_last_death,10.)
+        self._state[index] = self.get_decay_recursive(self._state[index])
 
         self.publish_states()
 
-    def get_decay(self, step, parameter):
+    def get_decay(self, step, parameter = 10.):
         return np.exp((step-self._step)/parameter)
+
+    def get_decay_recursive(self, value, parameter = 10.):
+        return value * np.exp(-1/parameter)
 
     def on_life(self, message):
         self._life = message.data
@@ -191,14 +187,10 @@ class StateAnalyser(object):
         if arguments[0] == "start" or arguments[0] == "running":
             self._game_running = True
             self._progression = float(arguments[1])/float(arguments[2])
-            self._step_last_characters_touched_child = np.zeros(len(self._characters))
-            self._step_last_characters_touched_robot = np.zeros(len(self._characters))
-            self._step_last_focus = np.zeros(len(self._focus_labels))
+            self._state = np.zeros(len(self._state_label))
             self._characters_touched_child = np.full(len(self._characters), False, dtype=bool)
             self._characters_touched_robot = np.full(len(self._characters), False, dtype=bool)
             self._child_focus =  np.full(len(self._focus_labels), False, dtype=bool)
-            self._step_last_feeding = 0
-            self._step_last_death = 0
             self.get_state()
 
         elif arguments[0] == "stop":
@@ -211,10 +203,7 @@ class StateAnalyser(object):
                 idx = self._characters.index(arguments[1])
             except:
                 idx = np.where(self._characters_touched_child == True)
-            self._step_last_characters_touched_child[idx] = self._step
             self._characters_touched_child[idx]=False
-            if self._current_touches == 0:
-                self._step_last_action_child = self._step
         elif  arguments[0] == "robotrelease":
             try:
                 idx = self._characters.index(arguments[1])
@@ -222,8 +211,6 @@ class StateAnalyser(object):
                 idx = np.where(self._characters_touched_robot == True)
             self._robot_touch = False
             self._characters_touched_robot[idx]=False
-            self._step_last_characters_touched_robot[idx] = self._step
-            self._step_last_action_robot = self._step
         elif  arguments[0] == "childtouch": 
             self._current_touches += 1
             self._characters_touched_child[self._characters.index(arguments[1])]=True
@@ -237,9 +224,9 @@ class StateAnalyser(object):
             for i in range(1,len(arguments)):
                 self._targets.append(arguments[i].split(",")[0])
         elif arguments[0] == "animaleats":
-            self._step_last_feeding = self._step
+            self._state[self._state_label.index("last_feeding")] = 1 / np.exp(-1/10.)
         elif arguments[0] == "animaldead":
-            self._step_last_death = self._step
+            self._state[self._state_label.index("last_death")] = 1 / np.exp(-1/10.)
             self._characters_touched_child[self._characters.index(arguments[1])] = False
             self._characters_touched_robot[self._characters.index(arguments[1])] = False
         elif arguments[0] == "looking":
@@ -248,7 +235,6 @@ class StateAnalyser(object):
                     self._child_focus[idx] = True
                 elif self._child_focus[idx]:
                     self._child_focus[idx] = False
-                    self._step_last_focus[idx] = self._step
 
         if len(self._characters) > 0 and len(self._targets) > 0 and not self._initialised:
             self.init_label()
@@ -256,7 +242,6 @@ class StateAnalyser(object):
     def on_nao_event(self, message):
         arguments = message.data.split("-")
         if arguments[0] == "blocking_speech_finished":
-            self._step_last_action_robot = self._step
             self._robot_speaks = False
         if arguments[0] == "blocking_speech_started":
             self._robot_speaks = True
@@ -285,9 +270,6 @@ class StateAnalyser(object):
 
         self._state = np.zeros(len(self._state_label))
 
-        self._step_last_characters_touched_child = self._step * np.ones(len(self._characters))
-        self._step_last_characters_touched_robot = self._step * np.ones(len(self._characters))
-        self._step_last_focus = self._step * np.ones(len(self._focus_labels))
         self._characters_touched_child = np.full(len(self._characters), False, dtype=bool)
         self._characters_touched_robot = np.full(len(self._characters), False, dtype=bool)
         self._child_focus =  np.full(len(self._focus_labels), False, dtype=bool)
