@@ -28,6 +28,7 @@ class Actor(object):
 
         self._actions = []
         self._trigger_states = []
+        self._waiting_states = []
 
         self._state = None
 
@@ -47,8 +48,11 @@ class Actor(object):
     def check_trigger(self):
         if len(self._trigger_states)==0:
             return
-        similarities = self.get_similarity_states(self._trigger_states,self._state[-self._trigger_number:])
-        if np.nanmax(similarities) > .98:
+        similarities_trigger = self.get_similarity_states(self._trigger_states,self._state[-self._trigger_number:])
+        max_trigger = np.nanmax(similarities_trigger)
+        similarities_waiting = self.get_similarity_states(self._waiting_states,self._state[-self._trigger_number:])
+        max_waiting = np.nanmax(similarities_waiting)
+        if not np.isnan(max_trigger) and max_trigger > .98 and max_trigger > max_waiting:
             self.select_action()
 
     def on_event(self, message):
@@ -156,6 +160,13 @@ class Actor(object):
             else:
                 reshaped_trigger_states = ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
                 self._trigger_states = ma.append(self._trigger_states,reshaped_trigger_states, axis=0) 
+
+        if reward == 0:
+            if len(self._waiting_states) == 0:
+                self._waiting_states=ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
+            else:
+                reshaped_waiting_states = ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
+                self._waiting_states = ma.append(self._waiting_states,reshaped_waiting_states, axis=0) 
 
 class Action(object):
     def __init__(self, act, state, reward):
