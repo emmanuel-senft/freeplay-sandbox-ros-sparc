@@ -57,7 +57,7 @@ def xyz2pantilt(pose, headframe=HEAD_FRAME):
     transformed_pose = tl.transformPose(headframe, pose)
     pan = numpy.arctan2(transformed_pose.pose.position.y, transformed_pose.pose.position.x)
     tilt = numpy.arctan2(transformed_pose.pose.position.z, transformed_pose.pose.position.x)
-    
+
     return (pan,tilt)
 
 def look_at(pose):
@@ -119,11 +119,11 @@ def arm_ik(targetpose, reference_frame="RShoulder"):
     else:
         # planar solution of the Inverse Kinematic problem
         elbow_angle = math.acos((x*x + y*y - l1*l1 - l2*l2)/(2*l1*l2))
-    
+
         # note: -pi/2 comes from the orientation of Nao's joint (-> angle = 0 <=> arm pointing forward)
         shoulder_angle = -math.pi/2 + math.asin(y/math.sqrt(x*x + y*y)) - math.asin(l2 *
                                                 math.sin(elbow_angle)/math.sqrt(x*x + y*y))
-    
+
 
     return clamp(shoulder_angle, NAO_RSHOULDER_ANGLE_LIMITS),clamp(elbow_angle,NAO_RELBOW_ANGLE_LIMITS)
 
@@ -146,8 +146,8 @@ def set_pointing_posture():
 
     if not robot_ready_to_point:
         names  = ["RShoulderRoll",
-                "RShoulderPitch", 
-                "RElbowRoll", 
+                "RShoulderPitch",
+                "RElbowRoll",
                 "RElbowYaw",
                 "RWristYaw"]
         angleLists  = [[-10 * TO_RAD, -75 * TO_RAD, -75 * TO_RAD, -35 * TO_RAD],
@@ -170,7 +170,7 @@ def arm_to_rest_posture():
 
     if robot_ready_to_point:
         names  = ["RShoulderRoll",
-                "RShoulderPitch", 
+                "RShoulderPitch",
                 "RElbowRoll"]
         angleLists  = [[-75 * TO_RAD, -75 * TO_RAD, -10 * TO_RAD],
                     [10 * TO_RAD, 70 * TO_RAD],
@@ -219,7 +219,7 @@ def on_pose(pose):
 
     else:
         rospy.loginfo("Got pose to look at, but I've fallen!");
-        
+
 def on_backchannel(message):
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
     if (message.data == "start"):
@@ -227,12 +227,12 @@ def on_backchannel(message):
     else:
         msg = random.choice(["Here?","Yes?","Here I think","There?","Ok?"])
     pub_speech.publish(String(msg))
-    
+
 def on_answer(message):
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
     msg = random.choice(["sur la chaise", "sous la chaise", "derriere la chaise"])
     pub_speech.publish(String(msg))
-    
+
 def on_quiz_feedback(message):
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
     if (message.data == "correct"):
@@ -240,11 +240,11 @@ def on_quiz_feedback(message):
     else:
         msg = random.choice(["It was a good try at least.", "It is tricky, but good attempt.", "Good effort!"])
     pub_speech.publish(String(msg))
-        
+
 
 class FallResponder(ALModule):
   """ Module to react to robotHasFallen events """
-  
+
   def __init__(self, name, motionProxy, memoryProxy):
       ALModule.__init__(self, name)
       self.motionProxy = motionProxy;
@@ -255,26 +255,26 @@ class FallResponder(ALModule):
       hasFallen = True;
       self.motionProxy.killAll();
       rospy.loginfo("Stopped task");
-      
+
 if __name__ == "__main__":
 
     rospy.init_node("nao_behaviours");
-    
+
     POSES_TOPIC = rospy.get_param('~poses_output_topic','poses')
-    NAO_IP = rospy.get_param('~nao_ip','127.0.0.1'); #default behaviour is 
+    NAO_IP = rospy.get_param('~nao_ip','127.0.0.1'); #default behaviour is
                                         #to connect to simulator locally
     NAO_HANDEDNESS = rospy.get_param('~nao_handedness','right')
     if(NAO_HANDEDNESS.lower()=='right'):
         effector   = "RArm"
     elif(NAO_HANDEDNESS.lower()=='left'):
         effector = "LArm"
-    else: 
+    else:
         rospy.logerr('error in handedness param')
 
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
     sub_backchannel = rospy.Subscriber("nao/backchannel/standard", String, on_backchannel, queue_size=1)
-    sub_quiz_answer = rospy.Subscriber("nao/prod-quiz/answer", String, on_answer, queue_size=1)
-    sub_quiz_feedback = rospy.Subscriber("nao/prod-quiz/feedback", String, on_quiz_feedback, queue_size=1)
+    sub_quiz_answer = rospy.Subscriber("nao/prod_quiz/answer", String, on_answer, queue_size=1)
+    sub_quiz_feedback = rospy.Subscriber("nao/prod_quiz/feedback", String, on_quiz_feedback, queue_size=1)
 
     # We need this broker to be able to construct
     # NAOqi modules and subscribe to other modules
@@ -290,7 +290,7 @@ if __name__ == "__main__":
     memoryProxy = ALProxy("ALMemory", NAO_IP, port);
     postureProxy = ALProxy("ALRobotPosture", NAO_IP, port)
     #fallResponder = FallResponder("fallResponder",motionProxy,memoryProxy);
-    
+
     motionProxy.wbEnableEffectorControl(effector,False); #if robot has fallen it will have a hard time getting up if the effector is still trying to be kept in a particular position
     motionProxy.wakeUp()
     postureProxy.goToPosture("StandInit", 0.5)
