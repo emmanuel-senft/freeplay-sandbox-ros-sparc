@@ -77,6 +77,7 @@ class ActionAnalyser(object):
         print str(self._proposing_action) + " " + str(self._state_analyser._robot_touch) + " " + str( self._state_analyser._robot_speaks) + " " + str(self._preparing_action)
         if self._proposing_action or self._state_analyser._robot_touch or self._state_analyser._robot_speaks or self._preparing_action:
             return
+        self._proposing_action = True
         
         if DEBUG:
             print message.data
@@ -100,8 +101,8 @@ class ActionAnalyser(object):
                     message.state_mask = mask
                     message.reward = -1
                     self._selected_action_pub.publish(message)
+                    self._proposing_action = False
                     return
-        self._proposing_action = True
                     
         message_out = ContinuousAction()
 
@@ -129,8 +130,10 @@ class ActionAnalyser(object):
                     goal = self._state_analyser.get_point_away(action_strings[1], action_strings[2])
                 if goal == None:
                     print "error"
+                    self._proposing_action = False
                     return
             else:
+                self._proposing_action = False
                 return
             if action_strings[2] not in message_out.strings:
                 message_out.strings.append(action_strings[2])
