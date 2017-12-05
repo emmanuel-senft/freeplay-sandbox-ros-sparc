@@ -43,7 +43,7 @@ class Actor(object):
 
     def on_state(self, message):
         self._state = np.array(message.data)
-        self.check_trigger()
+        self.select_action()
 
     def check_trigger(self):
         if len(self._trigger_states)==0:
@@ -91,7 +91,7 @@ class Actor(object):
             reward = action._rewards[idx]
             weighted_rewards[i] = reward * max_similarity
             indexes[i] = idx
-        if np.nanmax(weighted_rewards)<=0:
+        if np.nanmax(weighted_rewards)<=.95:
             print "no good candidate"
             return
         index_selected_action = np.nanargmax(weighted_rewards)
