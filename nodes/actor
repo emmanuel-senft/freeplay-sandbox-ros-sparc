@@ -83,6 +83,7 @@ class Actor(object):
             return
         weighted_rewards = np.zeros(len(self._actions))
         indexes = np.zeros(len(self._actions),dtype=int)
+        init = time.clock()
         for i, action in enumerate(self._actions):
             similarity = self.get_similarity_states(action._states,self._state)
             max_similarity = np.nanmax(similarity)
@@ -94,6 +95,11 @@ class Actor(object):
                 reward = action._rewards[idx]
                 weighted_rewards[i] = reward * max_similarity
                 indexes[i] = idx
+        end = time.clock()
+        print "Action selection"
+        print "weighted reward " + str(weighted_rewards)
+        print "max: " + str(np.nanmax(weighted_rewards))
+        print "time: " + str(end-init)
         if np.nanmax(weighted_rewards)<=.95:
             print "no good candidate"
             return
