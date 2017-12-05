@@ -32,6 +32,8 @@ class Module(object):
 
         self.create_proxies()   
 
+        self._ttsProxy.setParameter("speed", 80)
+        self._ttsProxy.setVolume(.05)
         self._motionProxy.setBreathConfig([["Bpm", 6], ["Amplitude", 0.9]])
         self._motionProxy.setBreathEnabled("Body",False)
         self._trackerProxy.registerTarget("Face",.2)
