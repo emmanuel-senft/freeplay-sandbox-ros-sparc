@@ -129,7 +129,7 @@ class ActionAnalyser(object):
                 if action_strings[0] == ACTION_MOVE_AWAY:
                     goal = self._state_analyser.get_point_away(action_strings[1], action_strings[2])
                 if goal == None:
-                    print "error"
+                    print "error: not possible to "+action_string
                     self._proposing_action = False
                     return
             else:

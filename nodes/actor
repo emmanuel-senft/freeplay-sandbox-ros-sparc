@@ -40,6 +40,7 @@ class Actor(object):
             try:
                 self.load_json()
             except Exception:
+                print "error while loading"
                 pass
 
     def on_state(self, message):
