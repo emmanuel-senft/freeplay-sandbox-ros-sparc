@@ -95,7 +95,11 @@ class Actor(object):
             else:
                 idx = len(similarity) - 1 - np.nanargmax(similarity[::-1])
                 reward = action._rewards[idx]
-                weighted_rewards[i] = reward * max_similarity
+                #_actions size can dynamically change
+                try:
+                    weighted_rewards[i] = reward * max_similarity
+                except:
+                    return
                 indexes[i] = idx
         end = time.clock()
         print "Action selection"
