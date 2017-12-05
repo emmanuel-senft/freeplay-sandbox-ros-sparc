@@ -42,6 +42,7 @@ class Module(object):
         self._trackerProxy.lookAt([0.5,0,-.2],0,.1,False)
 
         self._tl = tf.TransformListener()
+        self._standing = False
 
         ### Check the robot is launched and properly localised wrt the sandtray
         while not rospy.is_shutdown():
@@ -71,6 +72,8 @@ class Module(object):
         self._trackerProxy.stopTracker()
 
     def look_at(self, targetpose):
+        if self._standing:
+            return
         reference_frame = "torso"
         try:
             self._trackerProxy.stopTracker()
@@ -93,6 +96,8 @@ class Module(object):
             return
 
     def point_at(self, targetpose):
+        if self._standing:
+            return
         reference_frame = "torso"
         try:
             targetpose.header.stamp = self._tl.getLatestCommonTime(targetpose.header.frame_id,reference_frame)
@@ -120,7 +125,9 @@ class Module(object):
 
     def waiting(self):
         try:
+            self._standing = True
             self._postureProxy.goToPosture("Stand", 0.5)
+            self._standing = False
             self._trackerProxy.lookAt([1,0,.2], 0, .1,False)
             self._trackerProxy.track("Face")
         except:
