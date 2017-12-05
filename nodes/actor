@@ -86,11 +86,14 @@ class Actor(object):
         for i, action in enumerate(self._actions):
             similarity = self.get_similarity_states(action._states,self._state)
             max_similarity = np.nanmax(similarity)
-
-            idx = len(similarity) - 1 - np.nanargmax(similarity[::-1])
-            reward = action._rewards[idx]
-            weighted_rewards[i] = reward * max_similarity
-            indexes[i] = idx
+            if np.isnan(max_similarity):
+                weighted_rewards[i] = -1
+                indexes[i] = 0
+            else:
+                idx = len(similarity) - 1 - np.nanargmax(similarity[::-1])
+                reward = action._rewards[idx]
+                weighted_rewards[i] = reward * max_similarity
+                indexes[i] = idx
         if np.nanmax(weighted_rewards)<=.95:
             print "no good candidate"
             return
