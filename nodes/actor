@@ -31,6 +31,7 @@ class Actor(object):
         self._waiting_states = []
 
         self._state = None
+        self._threshold = .99
 
         self._use_files = rospy.get_param('~use_file',True)
         self._file_name = rospy.get_param('~file_name', os.path.expanduser('~') + "/Documents/foodchain-data/sparc/data.json")
@@ -138,6 +139,8 @@ class Actor(object):
                 points.append(item)
             action["points"]=points
             data.append(action)
+        threshold = {"threshold": self._threshold}
+        data.append(threshold)
         with open(self._file_name,'w') as outfile:
             json.dump(data, outfile)
 
@@ -145,17 +148,24 @@ class Actor(object):
         with open(self._file_name,'r') as infile:
             data=json.load(infile)
             for a in data:
-                id = a["id"]
-                points = a["points"]
-                for p in points:
-                    m = (p["s"] == np.array(None))
-                    d = np.where(p["s"] == np.array(None),0,p["s"])
-                    s=ma.array(d, mask=m)
-                    self.add_point(id, s, p["r"])
+                try:
+                    id = a["id"]
+                    points = a["points"]
+                    for p in points:
+                        m = (p["s"] == np.array(None))
+                        d = np.where(p["s"] == np.array(None),0,p["s"])
+                        s=ma.array(d, mask=m)
+                        self.add_point(id, s, p["r"], True)
+                except:
+                    self._threshold = a["threshold"]
 
-    def add_point(self, action, state, reward):
+    def add_point(self, action, state, reward, loading = False):
         for known_action in self._actions:
             if known_action._action == action:
+                if not loading:
+                    previous_sim = max(self.get_similarity_states(known_action._states, self._state))
+                    if previous_sim < self._threshold:
+                        self._threshold -= ( self._threshold - previous_sim) / 5.
                 reshaped_state=ma.reshape(state, (1,state.shape[0]))
                 known_action._states=ma.append(known_action._states,reshaped_state,axis=0)
                 known_action._rewards.append(reward)
@@ -170,12 +180,14 @@ class Actor(object):
                 reshaped_trigger_states = ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
                 self._trigger_states = ma.append(self._trigger_states,reshaped_trigger_states, axis=0) 
 
+        # A reward of 0 indicate a waiting action
         if reward == 0:
             if len(self._waiting_states) == 0:
                 self._waiting_states=ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
             else:
                 reshaped_waiting_states = ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
                 self._waiting_states = ma.append(self._waiting_states,reshaped_waiting_states, axis=0) 
+            self._threshold += (1 - self._threshold) / 5. 
 
 class Action(object):
     def __init__(self, act, state, reward):
