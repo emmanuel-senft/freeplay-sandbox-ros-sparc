@@ -39,15 +39,15 @@ class Player(object):
         self._moving_item = None
         self._waiting_speech = None
         self._waiting_pointing = None
-        self._sentences_congrats = ["Well done", "Excellent"]
+        self._sentences_congrats = ["Well done", "Excellent", "That's great", "Good job"]
         self._sentences_congrats_said = []
-        self._sentences_encours = ["Keep going", "You can do it"]
+        self._sentences_encours = ["Keep going", "You can do it", "Keep it up", "Keep up the good work"]
         self._sentences_encours_said = []
-        self._sentences_look = ["Look at the ", "What about the "]
+        self._sentences_look = ["Look at the ", "What about the ", "Don't forget the ", "Pay attention to the "]
         self._sentences_look_said = []
-        self._sentences_move = ["Let's move the x y z ", "Look, the x wants to go y z "]
+        self._sentences_move = ["Let's move the x y z ", "Look, the x wants to go y z ", "Let's take the x y z", "The x needs help getting y z"]
         self._sentences_move_said = []
-        self._sentences_rules = ["Animals need to eat to stay alive." , "Move the animals to feed them."]
+        self._sentences_rules = ["Animals need to eat to stay alive." , "Move the animals to feed them.", "Feed the animals with a low energy"]
         self._sentences_rules_said = []
         self._init = True
 
