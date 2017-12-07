@@ -8,31 +8,10 @@
     </visual>
   </link>
   <link name="$(arg camera1)_link" />
-  <link name="$(arg camera2)_link" />
 
-  <link name="$(arg env_camera)_link" />
-
-    <!-- obtained from Blender: select frame in Blender, open Python console, then:
-    
-    >>> C.selected_objects[0].matrix_world.to_translation()
-    >>> C.selected_objects[0].matrix_world.to_euler() (making sure it is 'XYZ' eulers)
-    -->
   <joint name="$(arg camera1)_joint" type="fixed">
     <parent link="sandtray"/>
     <child link="$(arg camera1)_link"/>
-    <origin xyz="-0.108 0.021 0.035" rpy="0 -0.349 -0.785" />
+    <origin xyz="0.3 0.065 0.033" rpy="0. -0.34 -1.5708" />
   </joint>
-
-  <joint name="$(arg camera2)_joint" type="fixed">
-    <parent link="sandtray"/>
-    <child link="$(arg camera2)_link"/>
-    <origin xyz="-0.108 -0.377 0.035" rpy="0 -0.349 0.785" />
-  </joint>
-
-  <joint name="$(arg env_camera)_joint" type="fixed">
-    <parent link="sandtray"/>
-    <child link="$(arg env_camera)_link"/>
-    <origin xyz="1.4 -0.15 0.52" rpy="0 0.29 3.142" />
-  </joint>
-
 </robot>

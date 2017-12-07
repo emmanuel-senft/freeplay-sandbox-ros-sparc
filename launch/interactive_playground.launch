@@ -1,17 +1,15 @@
 <launch>
-
     <!-- load sandtray URDF + cameras frames -->
-    <include file="$(find freeplay_sandbox)/launch/sandtray.launch" />
+    <include file="$(find freeplay_sparc)/launch/sandtray.launch" />
 
     <!-- build an occupancy map based on the positions of the objects within the
          sandbox, and provide a path planning service to move around said objects -->
     <node pkg="freeplay_sandbox" type="sandbox_map_and_plan" name="map_and_plan" required="true" />
-
-    <!-- process the sandbox background image to extract possible zones using
-         colour-based segmentation -->
-    <node pkg="freeplay_sandbox" type="zones_from_image" name="sandbox_zones_from_image" required="true" output="screen">
-        <remap from="/image" to="/sandtray/background/image"/>
-        <remap from="/camera_info" to="/sandtray/background/camera_info"/>
-    </node>
-
+    <!-- creates an action server to move sandbox objects to specific positions, 
+         using the path planner -->
+    <node pkg="freeplay_sparc" type="move_sandbox_items" name="move_sandbox_items" required="true" output="screen" />
+   <!-- interpret continuous action: send sentences to nao_behaviour and communicate with move_sandbox_items to create motions-->
+    <node pkg="freeplay_sparc" type="woz_play" name="woz_play" required="true" output="screen"/>
+    <!-- sublish static transforms for nao's position-->
+    <include file="$(find freeplay_sparc)/launch/robot_static_localisation.launch"/>
 </launch>

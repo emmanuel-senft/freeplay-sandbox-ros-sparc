@@ -1,6 +1,6 @@
 <launch>
-    <node name="static_localisation_odom" pkg="tf" type="static_transform_publisher" args=".347 .31 -.237 .013 -.025 .8 .6 /sandtray /odom 100"/>
-    <node name="static_localisation_torso" pkg="tf" type="static_transform_publisher" args=".282 .33 .08 .0 -.017 -.697 .717 /sandtray /torso 100"/>
+    <node name="static_localisation_odom" pkg="tf" type="static_transform_publisher" args=".3 .31 -.237 .013 -.025 .8 .6 /sandtray /odom 100"/>
+    <node name="static_localisation_torso" pkg="tf" type="static_transform_publisher" args=".3 .33 .08 .0 -.017 -.697 .717 /sandtray /torso 100"/>
     <node name="static_localisation_Head" pkg="tf" type="static_transform_publisher" args=" 0 0 .127 0 -.015 -.0.02 1 /torso /Head 100"/>
     <node name="static_localisation_Neck" pkg="tf" type="static_transform_publisher" args=" 0 0 .127 0 0 0 1 /torso /Neck 100"/>
 </launch>

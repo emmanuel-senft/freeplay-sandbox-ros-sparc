@@ -1,12 +1,10 @@
 <launch>
     <arg name="with_marker_localisation"          default="false" doc="Enable monitoring for fiducial marker to localise the robot" />
-    <arg name="nao_ip"              default="$(optenv NAO_IP 127.0.0.1)" doc="If using a robot, Nao's IP" />
+    <arg name="nao_ip"              default="$(optenv NAO_IP 127.0.0.1)" doc="Nao's IP" />
 
     <node pkg="freeplay_sparc" type="nao_behaviours" name="nao_behaviours" output="screen">
         <param name="nao_ip"            value="$(arg nao_ip)" />
     </node>
-
-    <!-- Sets the image source. -->
 
     <group if="$(arg with_marker_localisation)">
         <arg name="nao_port"              default="$(optenv NAO_PORT 9559)" doc="If using a robot, Nao's port" />
@@ -24,6 +22,4 @@
             <remap from="/image" to="$(arg image)" />
         </node>
     </group>
-    <include unless="$(arg with_marker_localisation)" file="$(find freeplay_sparc)/launch/robot_static_localisation.launch">
-    </include>
 </launch>
