@@ -72,13 +72,13 @@ class Module(object):
 
         self._motionProxy.setBreathEnabled("Body",False)
         self._trackerProxy.stopTracker()
+        self._trackerProxy.unregisterAllTargets()
 
     def look_at(self, targetpose):
         if self._standing:
             return
         reference_frame = "torso"
         try:
-            self._trackerProxy.stopTracker()
             targetpose.header.stamp = self._tl.getLatestCommonTime(targetpose.header.frame_id,reference_frame)
             pose = self._tl.transformPose(reference_frame, targetpose)
             target = [pose.pose.position.x,pose.pose.position.y,pose.pose.position.z]
@@ -86,12 +86,12 @@ class Module(object):
             print "error poses"
             return
         try:
-            self._trackerProxy.lookAt(target, 0, .3, False)
+            self._trackerProxy.post.lookAt(target, 0, .3, False)
         except:
             try:
                 print "look error proxy destroyed"
                 self.create_proxies()
-                self._trackerProxy.lookAt(target, 0, .3, False)
+                self._trackerProxy.post.lookAt(target, 0, .3, False)
             except:
                 print "error cannot recreate proxy"
                 return
@@ -131,7 +131,8 @@ class Module(object):
             self._postureProxy.goToPosture("Stand", 0.5)
             self._standing = False
             self._trackerProxy.lookAt([1,0,.2], 0, .1,False)
-            self._trackerProxy.track("Face")
+            if not self._trackerProxy.isActive():
+                self._trackerProxy.track("Face")
         except:
             try:
                 print "wait error proxy destroyed"
@@ -160,8 +161,8 @@ class Module(object):
             self.waiting()
 
     def on_pose(self, pose):
-        threading.Thread(target=self.point_at,args=(pose,)).start()
         self.look_at(pose)
+        self.point_at(pose)
 
     def on_blocking_speech(self, sentence):
         self._pub_event.publish(String("blocking_speech_started-"+sentence.data))
@@ -179,7 +180,6 @@ class Module(object):
 
     def create_proxies(self):
         self._motionProxy = ALProxy("ALMotion", self._ip, self._port);
-        self._memoryProxy = ALProxy("ALMemory", self._ip, self._port);
         self._ttsProxy = ALProxy("ALTextToSpeech", self._ip, self._port);
         self._postureProxy = ALProxy("ALRobotPosture", self._ip, self._port)
         self._trackerProxy = ALProxy("ALTracker", self._ip, self._port)
