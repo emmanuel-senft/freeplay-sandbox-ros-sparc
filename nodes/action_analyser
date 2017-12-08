@@ -4,6 +4,7 @@ import numpy.ma as ma
 import random
 import signal
 import sys
+import copy
 
 import math
 import rospy
@@ -169,12 +170,13 @@ class ActionAnalyser(object):
                 self._executing_action = False
                 return 
         item = message.header.frame_id
-        mask = self.get_mask(message.strings)
         reward = message.reward
 
         action = message.type 
         if message.type == "mv":
             action = self.get_action_move(item, message, message.strings)
+            if not action.split("_")[2] in message.strings:
+                message.strings.append(action.split("_")[2])
             if reward > 0:
                 self._action_description_pub.publish(String(action))
                 self._state_analyser._robot_touch = True
@@ -185,6 +187,7 @@ class ActionAnalyser(object):
         elif reward > 0:
             self._state_analyser._robot_speaks = True
 
+        mask = self.get_mask(message.strings)
         action = self._actions.index(action)
 
         self._preparing_action = False
@@ -211,7 +214,8 @@ class ActionAnalyser(object):
         self._actions.append(ACTION_RULES)
         return True
 
-    def get_action_move(self, item, pose, strings):
+    def get_action_move(self, item, pose, init_strings):
+        strings = copy.deepcopy(init_strings)
         goal = self._state_analyser.get_absolute_pose(pose)
         if len(strings)<2:
             strings = self._state_analyser._characters + self._state_analyser._targets
