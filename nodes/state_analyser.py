@@ -139,10 +139,11 @@ class StateAnalyser(object):
             self._state[index] = 1
         else:
             self._state[index] = self.get_decay_recursive(self._state[index])
-        index+=1
-        self._state[index] = self.get_decay_recursive(self._state[index])
-        index+=1
-        self._state[index] = self.get_decay_recursive(self._state[index])
+        #Events
+        for i in range(3):
+            index+=1
+            self._state[index] = self.get_decay_recursive(self._state[index])
+        print self._state[-1]
 
         self.publish_states()
 
@@ -229,6 +230,8 @@ class StateAnalyser(object):
             self._state[self._state_label.index("last_death")] = 1 / np.exp(-1/10.)
             self._characters_touched_child[self._characters.index(arguments[1])] = False
             self._characters_touched_robot[self._characters.index(arguments[1])] = False
+        elif arguments[0] == "failinteraction":
+            self._state[self._state_label.index("last_failed_interaction")] = 1 / np.exp(-1/10.)
         elif arguments[0] == "looking":
             for idx,l in enumerate(self._focus_labels):
                 if l == arguments[1]:
@@ -267,6 +270,7 @@ class StateAnalyser(object):
         self._state_label.append("last_robot_action")
         self._state_label.append("last_feeding")
         self._state_label.append("last_death")
+        self._state_label.append("last_failed_interaction")
 
         self._state = np.zeros(len(self._state_label))
 
