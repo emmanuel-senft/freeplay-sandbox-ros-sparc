@@ -1,0 +1,156 @@
+#!/usr/bin/env python
+import numpy as np
+import numpy.ma as ma
+import matplotlib.pyplot as plt
+import random
+import signal
+import sys
+import time
+
+import math
+
+import rospy
+from threading import Event, Lock, Timer
+
+from freeplay_sandbox_msgs.msg import ListFloatStamped, DiscreteAction
+
+
+class UnitTest(object):
+    def __init__(self):
+
+        self._state_pub = rospy.Publisher("sparc/state", ListFloatStamped, queue_size = 5)
+        self._proposed_sub = rospy.Subscriber("sparc/proposed_action_dis",DiscreteAction, self.on_action_proposed)
+        self._selected_pub = rospy.Publisher("sparc/selected_action_dis", DiscreteAction, queue_size = 5)
+
+        self._state=np.zeros(3,dtype = float)
+        self._stopping = False
+        self._expected_actions = None
+        self._received_action = None
+        rospy.loginfo("Ready to play!")
+        self._period = .005
+        self._timer = Timer(self._period, self.get_state)
+        self._timer.start()
+        self._step=0
+        self._missing=0
+        self._error=0
+
+        self._missings=[]
+        self._errors=[]
+
+    def get_state(self):
+        self._step += 1
+        if self._step > 500:
+            print "Missing " + str(self._missing)
+            print "Error " + str(self._error)
+            print "Target " + str(self._step - self._missing - self._error)
+            plt.plot(self._errors, label="errors")
+            plt.plot(self._missings, label="missing")
+            plt.plot(np.arange(0, len(self._errors))-self._errors-self._missings, label="hit")
+            plt.legend()
+            plt.show()
+            return
+        for i,v in enumerate(self._state):
+            self._state[i] = random.uniform(0,1)
+        self.publish_states()
+        good_actions = self.test_rules()
+        if len(good_actions) == 0:
+            self._expected_actions = [None]
+        else:
+            self._expected_actions = [a[0] for a in good_actions]
+        self._received_action = None
+        time.sleep(self._period)
+        if self._stopping:
+            return
+        print self._step
+        if self._received_action in self._expected_actions:
+            print "Good " + str(self._expected_actions) + " " + str(self._received_action)
+        else:
+            if self._received_action is None:
+                self._missing += 1
+            else:
+                self._error += 1
+        
+            print " ----------"
+            print " state " + str(self._state)
+            print "Bad " + str(self._expected_actions) + " " + str(self._received_action)+ " ---------------"
+        self.select_action()
+        self._missings.append(self._missing)
+        self._errors.append(self._error)
+        
+        self._timer = Timer(self._period, self.get_state)
+        self._timer.start()
+
+    def get_decay_recursive(self, value, parameter = 10.):
+        return value * np.exp(-1/parameter)
+        
+    def publish_states(self):
+        message = ListFloatStamped()
+        message.header.stamp = rospy.Time(0)
+        message.header.frame_id = "sandtray"
+        message.data = self._state
+        self._state_pub.publish(message)
+
+    def test_rules(self):
+        toReturn = []
+        if self._state[0]<.4 and self._state[1]>.6:
+            toReturn.append((0,[0,1]))
+            return toReturn
+        if self._state[0]>.6 and self._state[1]<.4:
+            toReturn.append((1,[0,1]))
+            return toReturn
+        if self._state[2]>.8:
+            toReturn.append((2,[2]))
+        #if self._state[23]>.3 and self._state[23]<.1 and self._state[25]>.8:
+        #    toReturn.append((3,[23,25]))
+        #if self._state[21] > .78 or self._state[23]>.9:
+        #    toReturn.append((4,[21,23]))
+        return toReturn
+
+    def select_action(self):
+        action = self.test_rules()
+        if len(action) == 0:
+            return
+        action = random.choice(action)
+
+        mask = np.zeros(len(self._state),dtype=bool)
+        mask[action[1]] = True
+        action = action[0]
+        reward = 1
+        self.publish_action(action, mask, reward)
+
+    def publish_action(self, action, mask, reward):
+        message = DiscreteAction() 
+        message.header.frame_id = "none"
+        message.header.stamp = rospy.Time(0)
+        message.action_id = action
+        message.state_mask = mask
+        message.reward = reward
+        self._selected_pub.publish(message)
+ 
+    def on_action_proposed(self, message):
+        state_mask = message.state_mask
+        action_id = message.action_id
+        self._received_action = action_id
+        action = self.test_rules()
+        if action in self._expected_actions:
+            pass
+        else:
+            self.publish_action(action_id, state_mask, -1)
+            return
+
+    def signal_handler(self, signal, frame):
+        self._stopping = True
+        self._timer.cancel()
+        sys.exit(0)
+
+    def run(self):
+        rospy.spin()
+
+if __name__ == "__main__":
+
+    rospy.init_node('state_analyser')
+
+    rospy.loginfo("Initializing TF...")
+    tester = UnitTest()
+    signal.signal(signal.SIGINT, tester.signal_handler)
+    tester.run()

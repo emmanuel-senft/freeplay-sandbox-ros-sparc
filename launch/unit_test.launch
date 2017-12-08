@@ -1,0 +1,9 @@
+<launch>
+    <node pkg="freeplay_sparc" type="unit_test" name="unit_test" output="screen">
+    </node>
+    <node pkg="freeplay_sparc" type="actor" name="actor" output="screen">
+        <param name="trigger_number" value="1"/>
+        <param name="use_file" value="False" />
+        <param name="file_name" value="/home/senft/test.json" />
+    </node>
+</launch>
