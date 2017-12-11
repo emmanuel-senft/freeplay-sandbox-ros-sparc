@@ -31,7 +31,11 @@ class Actor(object):
         self._waiting_states = []
 
         self._state = None
-        self._threshold = .99
+        self._init_threshold = .5
+        self._use_fixed_threshold = False
+        self._threshold = self._init_threshold
+        self._threshold_factor_decrease = .8
+        self._threshold_factor_increase = .8
 
         self._use_files = rospy.get_param('~use_file',True)
         self._file_name = rospy.get_param('~file_name', os.path.expanduser('~') + "/Documents/foodchain-data/sparc/data.json")
@@ -60,8 +64,24 @@ class Actor(object):
     def on_event(self, message):
         if message.data == "select":
             self.select_action()
+        if message.data == "reset":
+            self.reset()
+        if message.data.startswith("use_fixed_threshold"):
+            self._use_fixed_threshold = bool(int(message.data.split("-")[1]))
+        if message.data.startswith("init_threshold"):
+            self._init_threshold = float(message.data.split("-")[1])
+        if message.data.startswith("threshold_factor_increase"):
+            self._threshold_factor_increase = float(message.data.split("-")[1])
+        if message.data.startswith("threshold_factor_decrease"):
+            self._threshold_factor_decrease = float(message.data.split("-")[1])
+    
+    def reset(self):
+        self._actions=[]
+        self._threshold = self._init_threshold
 
     def on_action(self, message):
+        if self._state is None:
+            return
         action = message.action_id
         reward = message.reward
         state_mask = np.array(message.state_mask,dtype = bool)
@@ -108,6 +128,7 @@ class Actor(object):
         print "time: " + str(end-init)
         if np.nanmax(weighted_rewards)<=.95:
             print "no good candidate"
+        if np.nanmax(weighted_rewards)<=self._threshold:
             return
         index_selected_action = np.nanargmax(weighted_rewards)
         proposed_action = self._actions[index_selected_action]
@@ -169,10 +190,13 @@ class Actor(object):
             if known_action._action == action:
                 if not loading:
                     previous_sim = max(self.get_similarity_states(known_action._states, self._state))
-                    if previous_sim < self._threshold:
-                        self._threshold -= ( self._threshold - previous_sim) / 5.
+                    if not self._use_fixed_threshold:
+                        if reward > 0 and previous_sim < self._threshold:
+                            self._threshold -= ( self._threshold - previous_sim) / self._threshold_factor_decrease
+                        if reward <= 0 and previous_sim > self._threshold:
+                            self._threshold += (previous_sim-self._threshold) / self._threshold_factor_increase
                 reshaped_state=ma.reshape(state, (1,state.shape[0]))
-                known_action._states=ma.append(known_action._states,reshaped_state,axis=0)
+                known_action._states=ma.masked_array(np.append(known_action._states.data,reshaped_state.data,axis=0),mask=np.append(known_action._states.mask,reshaped_state.mask,axis=0))
                 known_action._rewards.append(reward)
                 break
         else:
@@ -192,7 +216,8 @@ class Actor(object):
             else:
                 reshaped_waiting_states = ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
                 self._waiting_states = ma.append(self._waiting_states,reshaped_waiting_states, axis=0) 
-            self._threshold += (1 - self._threshold) / 5. 
+            if not self._use_fixed_threshold:
+                self._threshold += (1 - self._threshold) / 5. 
 
 class Action(object):
     def __init__(self, act, state, reward):
