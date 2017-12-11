@@ -13,7 +13,9 @@ import rospy
 from threading import Event, Lock, Timer
 
 from freeplay_sandbox_msgs.msg import ListFloatStamped, DiscreteAction
+from std_msgs.msg import String
 
+DEBUG = False
 
 class UnitTest(object):
     def __init__(self):
@@ -21,34 +23,53 @@ class UnitTest(object):
         self._state_pub = rospy.Publisher("sparc/state", ListFloatStamped, queue_size = 5)
         self._proposed_sub = rospy.Subscriber("sparc/proposed_action_dis",DiscreteAction, self.on_action_proposed)
         self._selected_pub = rospy.Publisher("sparc/selected_action_dis", DiscreteAction, queue_size = 5)
+        self._event_pub = rospy.Publisher("sparc/event", String, queue_size = 5)
+        self._unit_parameters = rospy.Subscriber("unit/param", String, self.on_param)
+        self._unit_results = rospy.Publisher("unit/resutls", String, queue_size = 5)
 
-        self._state=np.zeros(3,dtype = float)
+        self._state=np.zeros(5,dtype = float)
         self._stopping = False
         self._expected_actions = None
         self._received_action = None
         rospy.loginfo("Ready to play!")
         self._period = .005
-        self._timer = Timer(self._period, self.get_state)
-        self._timer.start()
+        self._fig = None
+        self._condition = 0
+        self._max_conditions = 6
+        self._init_threshold=[.5,.98,.5,.5,.5,.5]
+        self._use_fixed_threshold=[1,1,0,0,0,0]
+        self._increase=[0, 0, 5,5,2,2]
+        self._decrease=[0, 0, 5,2,5,2]
+
+        self._max_repetitions = 1
+        self._repetition = 0 
+
+        self._max_step = 500
+
         self._step=0
         self._missing=0
         self._error=0
+        self._none=0
 
-        self._missings=[]
-        self._errors=[]
+        self._missings=np.zeros((self._max_conditions, self._max_step))
+        self._errors=np.zeros((self._max_conditions, self._max_step))
+        self._nones=np.zeros((self._max_conditions, self._max_step))
+
+        self._summ_missings = np.zeros((self._max_conditions, self._max_repetitions))
+        self._summ_errors = np.zeros((self._max_conditions, self._max_repetitions))
+
+        self._timer = Timer(.1, self.prepare_condition)
+        self._timer.start()
 
     def get_state(self):
         self._step += 1
-        if self._step > 500:
-            print "Missing " + str(self._missing)
-            print "Error " + str(self._error)
-            print "Target " + str(self._step - self._missing - self._error)
-            plt.plot(self._errors, label="errors")
-            plt.plot(self._missings, label="missing")
-            plt.plot(np.arange(0, len(self._errors))-self._errors-self._missings, label="hit")
-            plt.legend()
-            plt.show()
+        if self._step > self._max_step:
+            self.end()
             return
+        #if self._step % 100 == 0:
+            #self._event_pub.publish(String("reset"))
+            #time.sleep(.01)
+            
         for i,v in enumerate(self._state):
             self._state[i] = random.uniform(0,1)
         self.publish_states()
@@ -61,21 +82,29 @@ class UnitTest(object):
         time.sleep(self._period)
         if self._stopping:
             return
-        print self._step
+
+        if self._expected_actions[0] == None:
+            self._none += 1
+
+        if DEBUG:
+            print self._step
         if self._received_action in self._expected_actions:
-            print "Good " + str(self._expected_actions) + " " + str(self._received_action)
+            if DEBUG:
+                print "Good " + str(self._expected_actions) + " " + str(self._received_action)
         else:
             if self._received_action is None:
                 self._missing += 1
             else:
                 self._error += 1
         
-            print " ----------"
-            print " state " + str(self._state)
-            print "Bad " + str(self._expected_actions) + " " + str(self._received_action)+ " ---------------"
+            if DEBUG:
+                print " ----------"
+                print " state " + str(self._state)
+                print "Bad " + str(self._expected_actions) + " " + str(self._received_action)+ " ---------------"
         self.select_action()
-        self._missings.append(self._missing)
-        self._errors.append(self._error)
+        self._missings[self._condition, self._step -1]= self._missing 
+        self._errors[self._condition, self._step -1]= self._error 
+        self._nones[self._condition, self._step -1]= self._none 
         
         self._timer = Timer(self._period, self.get_state)
         self._timer.start()
@@ -94,12 +123,14 @@ class UnitTest(object):
         toReturn = []
         if self._state[0]<.4 and self._state[1]>.6:
             toReturn.append((0,[0,1]))
-            return toReturn
+            #return toReturn
         if self._state[0]>.6 and self._state[1]<.4:
             toReturn.append((1,[0,1]))
-            return toReturn
-        if self._state[2]>.8:
+            #return toReturn
+        if self._state[2]>.4:
             toReturn.append((2,[2]))
+        if self._state[4]>self._state[3]:
+            toReturn.append((3,[3,4]))
         #if self._state[23]>.3 and self._state[23]<.1 and self._state[25]>.8:
         #    toReturn.append((3,[23,25]))
         #if self._state[21] > .78 or self._state[23]>.9:
@@ -131,14 +162,114 @@ class UnitTest(object):
         state_mask = message.state_mask
         action_id = message.action_id
         self._received_action = action_id
-        action = self.test_rules()
-        if action in self._expected_actions:
+        if action_id in self._expected_actions:
             pass
         else:
             self.publish_action(action_id, state_mask, -1)
             return
+    def on_param(self, message):
+        pass
 
+    def prepare_condition(self):
+        time.sleep(.100)
+        print "____________________________________________"
+        print "Condition:"
+        string = "use_fixed_threshold-"+str(self._use_fixed_threshold[self._condition])
+        self._event_pub.publish(String(string))
+
+        string = "init_threshold-"+str(self._init_threshold[self._condition])
+        self._event_pub.publish(String(string))
+
+        string = "threshold_factor_increase-"+str(self._increase[self._condition])
+        self._event_pub.publish(String(string))
+
+        string = "threshold_factor_decrease-"+str(self._decrease[self._condition])
+        self._event_pub.publish(String(string))
+
+        self._event_pub.publish(String("reset"))
+        time.sleep(.100)
+
+        self.reset()
+
+    def end(self):
+
+        self._summ_missings[self._condition, self._repetition] = self._missing
+        self._summ_errors[self._condition, self._repetition] = self._error
+
+        self._repetition += 1
+        if self._repetition == self._max_repetitions:
+            self._repetition = 0
+            print "-----"
+            print "Missing " + str(np.mean(self._summ_missings[self._condition]))
+            print "Error " + str(np.mean(self._summ_errors[self._condition]))
+            self._condition +=1
+            if self._condition<self._max_conditions:
+                self.prepare_condition()
+            else:
+                self.plot()
+        else:
+            self._event_pub.publish(String("reset"))
+            time.sleep(.100)
+            self.reset()
+        #print "fix "+str(self._use_fixed_threshold[self._condition])
+        #print "init_threshold "+str(self._init_threshold[self._condition])
+        #print "factor increase "+str(self._increase[self._condition])
+        #print "factor decrease "+str(self._decrease[self._condition])
+           #print "Target " + str(self._step - self._missing - self._error)
+        #self._condition += 1
+        #if self._condition >= len(self._init_threshold):
+        #    self.plot()
+        #    return
+        #self.prepare_condition()
+
+    def reset(self):
+        self._step=0
+        self._missing=0
+        self._error=0
+        self._none=0
+        
+        self._timer = Timer(self._period, self.get_state)
+        self._timer.start()
+ 
+    def plot(self):
+        #plt.plot(self._errors, label="errors", color="red")
+        #plt.plot(self._missings, label="missing", color = "blue")
+        #plt.plot(np.arange(0, len(self._errors))-self._errors-self._missings, label="hit",color = "green")
+
+        f,ax = plt.subplots(2,2)
+        for index in range(4):
+            stamps_errors = [i for i,v in enumerate(self._errors[index+2]) if i>0 and v != self._errors[index+2,i-1]] 
+            stamps_missings = [i for i,v in enumerate(self._missings[index+2]) if i>0 and v != self._missings[index+2, i-1]] 
+            stamps_intervention=stamps_errors+stamps_missings
+            stamps_intervention.sort()
+
+            ax[int(index>=2), index%2].vlines(x=stamps_missings, ymin=0, ymax= 1, color = "blue")
+            ax[int(index>=2), index%2].vlines(x=stamps_errors, ymin=0, ymax= 1, color = "red")
+            #plt.vlines(x=stamps_intervention, ymin=0, ymax= 50, color = "red")
+
+            interventions = np.zeros(self._max_step)
+            interventions[stamps_intervention] = 1
+            ratio = self.causal_moving_av(interventions,50)
+            ax[int(index>=2), index%2].plot(ratio, label = "ratio",color="green")
+            
+            ax[int(index>=2), index%2].legend()
+        plt.show()
+
+    def moving_av(self, x, N):
+        cumsum = np.cumsum(np.insert(x,0,0))
+        return (cumsum[N:] - cumsum[:-N])/float(N)
+
+    def causal_moving_av(self, x, N):
+        c = np.cumsum(x)
+        av = np.zeros(c.shape)
+        for i in range(N):
+            av[i] = c[i]/float(i+1)
+        for i in range(len(x)-N):
+            av[i+N] = (c[i+N] - c[i]) / float(N)
+        return av
+ 
     def signal_handler(self, signal, frame):
+        plt.close("all")
         self._stopping = True
         self._timer.cancel()
         sys.exit(0)
