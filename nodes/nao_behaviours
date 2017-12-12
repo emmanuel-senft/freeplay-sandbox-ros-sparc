@@ -163,6 +163,10 @@ class Module(object):
     def on_event(self, message):
         if message.data == "motion_finished" or message.data == "att_finished":
             self.waiting()
+        if message.data == "endround":
+            print "endround"
+            self.waiting()
+
 
     def on_pose(self, pose):
         self.look_at(pose)

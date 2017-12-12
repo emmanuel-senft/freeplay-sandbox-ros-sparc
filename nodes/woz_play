@@ -28,6 +28,7 @@ class Player(object):
         self._description_sub = rospy.Subscriber("sparc/action_description", String, self.on_description)
         self._event_sub = rospy.Subscriber("sandtray/interaction_events", String, self.on_event)
         self._nao_event_sub = rospy.Subscriber("nao/events", String, self.on_nao_event)
+        self._nao_event_pub = rospy.Publisher("nao/events", String, queue_size=5)
         self._motion = actionlib.SimpleActionClient('move_sandbox_items', freeplay_sandbox_msgs.msg.PlaygroundNavigationAction)
         self._blocking_speech_pub = rospy.Publisher("nao/blocking_speech", String, queue_size = 5)
         self._poses_pub = rospy.Publisher("poses", PoseStamped, queue_size = 5)
@@ -123,8 +124,11 @@ class Player(object):
         if msg.data.startswith("robotrelease_"):
             self._moving_item = None
             self.event_release.set()
-        if msg.data == "endround" and self._moving_item != None:
-            self._motion.cancel_goal()
+        if msg.data == "endround":
+            self._nao_event_pub.publish(String("endround"))
+            if self._moving_item:
+                self.event_release.clear()
+                self._motion.cancel_goal()
 
     def on_nao_event(self, msg):
         if msg.data == "blocking_speech_finished" and self._waiting_speech:
