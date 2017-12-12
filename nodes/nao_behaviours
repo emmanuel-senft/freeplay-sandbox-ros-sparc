@@ -35,7 +35,7 @@ class Module(object):
         self._ttsProxy.setParameter("speed", 80)
         self._ttsProxy.setVolume(.05)
         self._motionProxy.setBreathConfig([["Bpm", 6], ["Amplitude", 0.9]])
-        self._motionProxy.setBreathEnabled("Body",False)
+        self._motionProxy.setBreathEnabled("Legs",False)
         self._trackerProxy.registerTarget("Face",.2)
         self._ledProxy.fadeRGB("FaceLeds",1,1,1,.1)
 
@@ -62,7 +62,7 @@ class Module(object):
             rospy.sleep(0.5)
 
         self._sub_poses = rospy.Subscriber("poses", PoseStamped, self.on_pose, queue_size=1) 
-        self._motionProxy.setBreathEnabled("Body",True)
+        self._motionProxy.setBreathEnabled("Legs",True)
         self.waiting()
 
         r = rospy.Rate(2)
@@ -70,7 +70,7 @@ class Module(object):
         while not rospy.is_shutdown():
             r.sleep()
 
-        self._motionProxy.setBreathEnabled("Body",False)
+        self._motionProxy.setBreathEnabled("Legs",False)
         self._trackerProxy.stopTracker()
         self._trackerProxy.unregisterAllTargets()
 
@@ -132,7 +132,11 @@ class Module(object):
             self._standing = False
             self._trackerProxy.lookAt([1,0,.2], 0, .1,False)
             if not self._trackerProxy.isActive():
+                self._trackerProxy.registerTarget("Face",.2)
                 self._trackerProxy.track("Face")
+            if not self._motionProxy.getBreathEnabled("Legs"):
+                self._motionProxy.setBreathConfig([["Bpm", 6], ["Amplitude", 0.9]])
+                self._motionProxy.setBreathEnabled("Legs",False)
         except:
             try:
                 print "wait error proxy destroyed"
