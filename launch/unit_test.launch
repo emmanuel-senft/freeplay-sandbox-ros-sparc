@@ -1,4 +1,9 @@
 <launch>
+    <remap from="sparc/state" to="unit_test/state"/>
+    <remap from="sparc/proposed_action_dis" to="unit_test/proposed_action"/>
+    <remap from="sparc/selected_action_dis" to="unit_test/selected_action"/>
+    <remap from="sparc/event" to="unit_test/event"/>
+    <remap from="sparc/state" to="unit_test/state"/>
     <node pkg="freeplay_sparc" type="unit_test" name="unit_test" output="screen">
     </node>
     <node pkg="freeplay_sparc" type="actor" name="actor" output="screen">
