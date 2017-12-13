@@ -163,8 +163,7 @@ class Module(object):
     def on_event(self, message):
         if message.data == "motion_finished" or message.data == "att_finished":
             self.waiting()
-        if message.data == "endround":
-            print "endround"
+        if message.data == "wait":
             self.waiting()
 
 

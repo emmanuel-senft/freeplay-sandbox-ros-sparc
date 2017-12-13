@@ -167,6 +167,8 @@ class PlaygroundTrajTrackerAction(object):
         if message.data == "sup_act_cancel":
             print "cancelling"
             self._as.preempt_request = True
+        if message.data == "endround":
+            self._as.preempt_request = True
 
 
 if __name__ == '__main__':

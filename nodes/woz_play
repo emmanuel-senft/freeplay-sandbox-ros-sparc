@@ -125,7 +125,7 @@ class Player(object):
             self._moving_item = None
             self.event_release.set()
         if msg.data == "endround":
-            self._nao_event_pub.publish(String("endround"))
+            self._nao_event_pub.publish(String("wait"))
             if self._moving_item:
                 self.event_release.clear()
                 self._motion.cancel_goal()
