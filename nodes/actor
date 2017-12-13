@@ -37,6 +37,8 @@ class Actor(object):
         self._threshold_factor_decrease = .8
         self._threshold_factor_increase = .8
 
+        self._neighbours_number = 1
+
         self._use_files = rospy.get_param('~use_file',True)
         self._file_name = rospy.get_param('~file_name', os.path.expanduser('~') + "/Documents/foodchain-data/sparc/data.json")
         print "using files " + str(self._use_files)
@@ -74,6 +76,8 @@ class Actor(object):
             self._threshold_factor_increase = float(message.data.split("-")[1])
         if message.data.startswith("threshold_factor_decrease"):
             self._threshold_factor_decrease = float(message.data.split("-")[1])
+        if message.data.startswith("neighbours_number"):
+            self._neighbours_number = float(message.data.split("-")[1])
     
     def reset(self):
         self._actions=[]
@@ -108,26 +112,20 @@ class Actor(object):
         init = time.clock()
         for i, action in enumerate(self._actions):
             similarity = self.get_similarity_states(action._states,self._state)
-            max_similarity = np.nanmax(similarity)
-            if np.isnan(max_similarity):
+            n = int(min(len(similarity), self._neighbours_number))
+            idx_max = np.argpartition(similarity,-n)[-n:]
+            idx_max = [j for j in idx_max if not np.isnan(similarity[j])]
+            if len(idx_max)==0:
                 weighted_rewards[i] = -1
                 indexes[i] = 0
             else:
-                idx = len(similarity) - 1 - np.nanargmax(similarity[::-1])
-                reward = action._rewards[idx]
                 #_actions size can dynamically change
                 try:
-                    weighted_rewards[i] = reward * max_similarity
+                    weighted_rewards[i] = np.median(action._rewards[idx_max] * similarity[idx_max])
+                    indexes[i] = max(idx_max)
                 except:
                     return
-                indexes[i] = idx
-        end = time.clock()
-        print "Action selection"
-        print "weighted reward " + str(weighted_rewards)
-        print "max: " + str(np.nanmax(weighted_rewards))
-        print "time: " + str(end-init)
-        if np.nanmax(weighted_rewards)<=.95:
-            print "no good candidate"
+
         if np.nanmax(weighted_rewards)<=self._threshold:
             return
         index_selected_action = np.nanargmax(weighted_rewards)
@@ -197,7 +195,7 @@ class Actor(object):
                             self._threshold += (previous_sim-self._threshold) / self._threshold_factor_increase
                 reshaped_state=ma.reshape(state, (1,state.shape[0]))
                 known_action._states=ma.masked_array(np.append(known_action._states.data,reshaped_state.data,axis=0),mask=np.append(known_action._states.mask,reshaped_state.mask,axis=0))
-                known_action._rewards.append(reward)
+                known_action._rewards= np.append(known_action._rewards,reward)
                 break
         else:
             new_action = Action(action, state, reward)
@@ -223,7 +221,7 @@ class Action(object):
     def __init__(self, act, state, reward):
         self._action = act
         self._states = ma.reshape(state,(1,state.shape[0]))
-        self._rewards = [reward]
+        self._rewards = np.array([reward])
 
 if __name__ == "__main__":
     rospy.init_node('actor')
