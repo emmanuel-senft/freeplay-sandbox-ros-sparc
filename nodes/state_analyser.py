@@ -88,20 +88,19 @@ class StateAnalyser(object):
             return
         self._timer = Timer(0.5, self.get_state)
         self._timer.start()
-        
+
         self._step += 1
         index = 0
         for idx, character in enumerate(self._characters):
             for other in (self._characters+self._targets)[idx+1:]:
                 self._state[index]=self.get_distance_objects(character,other)/DIAGONAL
                 index+=1
+
         #Last time a character is touched by the child
         for idx,character in enumerate(self._characters):
-            if self._characters_touched_child[idx]:
-                self._state[index] = 1
-            else:
-                self._state[index] = self.get_decay_recursive(self._state[index])
-            index+=1
+            self._state[index] = self.get_accumulation(self._state[index], self._characters_touched_child[idx])
+            index += 1
+
         #Last time a character is touched by the robot
         for idx,character in enumerate(self._characters):
             if self._characters_touched_robot[idx]:
@@ -121,29 +120,26 @@ class StateAnalyser(object):
 
         #Focus of attention
         for idx,v in enumerate(self._child_focus):
-            if v:
-                self._state[index] = 1
-            else:
-                self._state[index] = self.get_decay_recursive(self._state[index])
+            self._state[index] = self.get_accumulation(self._state[index], v)
             index+=1
 
-        #Touches
-        if self._current_touches > 0:
-            self._state[index] = 1
-        else:
-            self._state[index] = self.get_decay_recursive(self._state[index])
+        #Child action
+        self._state[index] = self.get_accumulation(self._state[index], self._current_touches)
+        print self._state[index]
         index+=1
 
-        #Actions
+        #Robot actions
         if self._robot_speaks or self._robot_touch:
             self._state[index] = 1
         else:
             self._state[index] = self.get_decay_recursive(self._state[index])
+
         #Events
         for i in range(3):
             index+=1
             self._state[index] = self.get_decay_recursive(self._state[index])
-        print self._state[-1]
+
+        print self._state[self._state_label.index("last_failed_interaction")]
 
         self.publish_states()
 
@@ -151,7 +147,20 @@ class StateAnalyser(object):
         return np.exp((step-self._step)/parameter)
 
     def get_decay_recursive(self, value, parameter = 10.):
-        return value * np.exp(-1/parameter)
+        return value * np.exp(-1./parameter)
+
+    def get_growth_recursive(self, value, parameter = 10.):
+        return 1 - (1 - value) * np.exp(-1./parameter)
+
+    def get_accumulation(self, value, condition):
+        if condition:
+            if value <.5:
+                value = .5
+            return self.get_growth_recursive(value)
+        else:
+            if value >.5:
+                value = .5
+            return self.get_decay_recursive(value)
 
     def on_life(self, message):
         self._life = message.data
@@ -225,13 +234,13 @@ class StateAnalyser(object):
             for i in range(1,len(arguments)):
                 self._targets.append(arguments[i].split(",")[0])
         elif arguments[0] == "animaleats":
-            self._state[self._state_label.index("last_feeding")] = 1 / np.exp(-1/10.)
+            self._state[self._state_label.index("last_feeding")] = self.discrete_increase(self._state[self._state_label.index("last_feeding")])
         elif arguments[0] == "animaldead":
-            self._state[self._state_label.index("last_death")] = 1 / np.exp(-1/10.)
+            self._state[self._state_label.index("last_death")] = self.discrete_increase(self._state[self._state_label.index("last_death")])
             self._characters_touched_child[self._characters.index(arguments[1])] = False
             self._characters_touched_robot[self._characters.index(arguments[1])] = False
         elif arguments[0] == "failinteraction":
-            self._state[self._state_label.index("last_failed_interaction")] = 1 / np.exp(-1/10.)
+            self._state[self._state_label.index("last_failed_interaction")] = self.discrete_increase(self._state[self._state_label.index("last_failed_interaction")])
         elif arguments[0] == "looking":
             for idx,l in enumerate(self._focus_labels):
                 if l == arguments[1]:
@@ -241,6 +250,12 @@ class StateAnalyser(object):
 
         if len(self._characters) > 0 and len(self._targets) > 0 and not self._initialised:
             self.init_label()
+
+    def discrete_increase(self, value, parameter = .6):
+        value += parameter 
+        if value > 1/np.exp(-1/10.):
+            value = 1/np.exp(-1/10.)
+        return value
 
     def on_nao_event(self, message):
         arguments = message.data.split("-")
