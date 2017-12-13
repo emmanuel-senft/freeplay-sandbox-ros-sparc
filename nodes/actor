@@ -34,8 +34,8 @@ class Actor(object):
         self._init_threshold = .5
         self._use_fixed_threshold = False
         self._threshold = self._init_threshold
-        self._threshold_factor_decrease = .8
-        self._threshold_factor_increase = .8
+        self._threshold_factor_decrease = 10
+        self._threshold_factor_increase = 5
 
         self._neighbours_number = 1
 
@@ -59,8 +59,8 @@ class Actor(object):
         similarities_trigger = self.get_similarity_states(self._trigger_states,self._state[-self._trigger_number:])
         max_trigger = np.nanmax(similarities_trigger)
         similarities_waiting = self.get_similarity_states(self._waiting_states,self._state[-self._trigger_number:])
-        max_waiting = np.nanmax(similarities_waiting)
-        if not np.isnan(max_trigger) and max_trigger > .98 and max_trigger > max_waiting:
+        #max_waiting = np.nanmax(similarities_waiting)
+        if not np.isnan(max_trigger) and max_trigger > .98:# and max_trigger > max_waiting:
             self.select_action()
 
     def on_event(self, message):
@@ -90,9 +90,12 @@ class Actor(object):
         reward = message.reward
         state_mask = np.array(message.state_mask,dtype = bool)
         masked_state = ma.array(self._state, mask = ~state_mask, dtype = float)
-        if DEBUG:
-            print "masked state"
-            print masked_state
+        if reward<0:
+            if DEBUG:
+                print "----------------No-------------"
+                print action
+                print self._state
+                print state_mask 
 
         self.add_point(action, masked_state, reward)
     
@@ -109,7 +112,6 @@ class Actor(object):
             return
         weighted_rewards = np.zeros(len(self._actions))
         indexes = np.zeros(len(self._actions),dtype=int)
-        init = time.clock()
         for i, action in enumerate(self._actions):
             similarity = self.get_similarity_states(action._states,self._state)
             n = int(min(len(similarity), self._neighbours_number))
@@ -119,13 +121,15 @@ class Actor(object):
                 weighted_rewards[i] = -1
                 indexes[i] = 0
             else:
-                #_actions size can dynamically change
                 try:
                     weighted_rewards[i] = np.median(action._rewards[idx_max] * similarity[idx_max])
                     indexes[i] = max(idx_max)
                 except:
                     return
 
+        if DEBUG:
+            action_index = [a._action for a in self._actions]
+            print "weighted reward " + str([x for _,x in sorted(zip(action_index, weighted_rewards))])
         if np.nanmax(weighted_rewards)<=self._threshold:
             return
         index_selected_action = np.nanargmax(weighted_rewards)
@@ -184,6 +188,8 @@ class Actor(object):
                     self._threshold = a["threshold"]
 
     def add_point(self, action, state, reward, loading = False):
+        if DEBUG:
+            print "Threshold "+str(self._threshold)
         for known_action in self._actions:
             if known_action._action == action:
                 if not loading:
@@ -200,6 +206,8 @@ class Actor(object):
         else:
             new_action = Action(action, state, reward)
             self._actions.append(new_action)
+
+        #Trigger state    
         if reward > 0:
             if len(self._trigger_states) == 0:
                 self._trigger_states=ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
@@ -214,8 +222,6 @@ class Actor(object):
             else:
                 reshaped_waiting_states = ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
                 self._waiting_states = ma.append(self._waiting_states,reshaped_waiting_states, axis=0) 
-            if not self._use_fixed_threshold:
-                self._threshold += (1 - self._threshold) / 5. 
 
 class Action(object):
     def __init__(self, act, state, reward):
