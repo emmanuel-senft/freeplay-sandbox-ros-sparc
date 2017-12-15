@@ -1,12 +1,13 @@
 <launch>
-    <remap from="sparc/state" to="unit_test/state"/>
-    <remap from="sparc/proposed_action_dis" to="unit_test/proposed_action"/>
-    <remap from="sparc/selected_action_dis" to="unit_test/selected_action"/>
-    <remap from="sparc/event" to="unit_test/event"/>
-    <remap from="sparc/state" to="unit_test/state"/>
-    <node pkg="freeplay_sparc" type="unit_test" name="unit_test" output="screen">
+    <arg name="pso_number" default="1"/>
+    <remap from="sparc/state" to="$(eval 'unit_test'+str(arg('pso_number'))+'/state')"/>
+    <remap from="sparc/proposed_action_dis" to="$(eval 'unit_test'+str(arg('pso_number'))+'/proposed_action')"/>
+    <remap from="sparc/selected_action_dis" to="$(eval 'unit_test'+str(arg('pso_number'))+'/selected_action')"/>
+    <remap from="sparc/event" to="$(eval 'unit_test'+str(arg('pso_number'))+'/event')"/>
+    <node pkg="freeplay_sparc" type="unit_test" name="$(eval 'unit_test'+str(arg('pso_number')))" output="screen">
+        <param name="pso_number" value="$(arg pso_number)" />
     </node>
-    <node pkg="freeplay_sparc" type="actor" name="actor" output="screen">
+    <node pkg="freeplay_sparc" type="actor" name="$(eval 'unit_test_actor'+str(arg('pso_number')))" output="screen">
         <param name="trigger_number" value="1"/>
         <param name="use_file" value="False" />
         <param name="file_name" value="/home/senft/test.json" />

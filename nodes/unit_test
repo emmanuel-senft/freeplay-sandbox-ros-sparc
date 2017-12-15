@@ -9,6 +9,7 @@ import time
 from pyswarm import pso
 from threading import Event
 import math
+import json
 
 import rospy
 from threading import Event, Lock, Timer
@@ -40,22 +41,28 @@ class MetaTest(object):
 
         self._unit = UnitTest(self)
 
-        self._missings=np.zeros((self._max_conditions, self._unit._max_step))
-        self._errors=np.zeros((self._max_conditions, self._unit._max_step))
-        self._nones=np.zeros((self._max_conditions, self._unit._max_step))
+        self._missings=np.zeros((self._max_conditions, self._max_repetitions, self._unit._max_step))
+        self._errors=np.zeros((self._max_conditions, self._max_repetitions, self._unit._max_step))
+        self._nones=np.zeros((self._max_conditions, self._max_repetitions, self._unit._max_step))
+        self._proposed=np.zeros((self._max_conditions, self._max_repetitions, self._unit._max_step))
+        self._selected=np.zeros((self._max_conditions, self._max_repetitions, self._unit._max_step))
 
         self._summ_missings = np.zeros((self._max_conditions, self._max_repetitions))
         self._summ_errors = np.zeros((self._max_conditions, self._max_repetitions))
+        self._diff_missings = np.zeros((self._max_conditions, self._max_repetitions))
+        self._diff_errors = np.zeros((self._max_conditions, self._max_repetitions))
 
         self._is_stopping = False
+        self._data= None
 
         if OPTIMISING:
             self._event_finished = Event()
             self._fitness = 0
+            self._pso_number = rospy.get_param("~pso_number","0")
 
           #Param: increase, decrease, neighbours
             self._lb=[0.1,0.1,1]
-            self._ub=[10,10,10]
+            self._ub=[20,20,10]
             self._timer = Timer(.1, self.run_opt)
         else:
             self._timer = Timer(.1, self.start)
@@ -100,19 +107,30 @@ class MetaTest(object):
         self._unit.prepare_condition()
 
  
-    def end(self, missings, errors, nones):
+    def end(self, missings, errors, nones, proposed, selected):
         print "end rep "+str(self._repetition)
+
         self._summ_missings[self._condition, self._repetition] = missings[-1]
         self._summ_errors[self._condition, self._repetition] = errors[-1]
+        self._diff_missings[self._condition, self._repetition] = missings[-1]-missings[self._unit._step/2]
+        self._diff_errors[self._condition, self._repetition] = errors[-1]-errors[self._unit._step/2]
+        self._missings[self._condition, self._repetition]=missings
+        self._errors[self._condition, self._repetition]=errors
+        self._nones[self._condition, self._repetition]=nones
+        self._proposed[self._condition, self._repetition]=proposed
+        self._selected[self._condition, self._repetition]=selected
 
         self._repetition += 1
         if self._repetition == self._max_repetitions:
             self._repetition = 0
             errors = np.mean(self._summ_errors[self._condition])
             missing = np.mean(self._summ_missings[self._condition])
+            #errors = np.mean(self._diff_errors[self._condition])
+            #missing = np.mean(self._diff_missings[self._condition])
             print "-----"
             print "Missing " + str(missing) + " ("+str(np.std(self._summ_missings[self._condition]))+")"
             print "Error " + str(errors) + " ("+str(np.std(self._summ_errors[self._condition]))+")"
+            self.write_json()
             if OPTIMISING:
                 self._fitness = errors + missing/2.
                 self._event_finished.set()
@@ -125,6 +143,17 @@ class MetaTest(object):
         else:
             time.sleep(.100)
             self._unit.reset()
+
+    def write_json(self):
+        a={"fixed":self._use_fixed_threshold[self._condition],"init":self._init_threshold[self._condition],"increase":self._increase[self._condition],"decrease":self._decrease[self._condition], "NN":self._neighbours_number[self._condition], "missings":self._missings[self._condition].tolist(),"errors":self._errors[self._condition].tolist(), "nones":self._nones[self._condition].tolist(), "selected":self._selected[self._condition].tolist(), "proposed":self._proposed[self._condition].tolist()}
+        file_name = "/home/senft/Documents/foodchain-data/sparc/pso"+str(self._pso_number)+".json" 
+
+        if self._data is None:
+            self._data={"repetitions":self._max_repetitions, "steps":self._unit._max_step, "values":[a]}
+        else:
+            self._data["values"].append(a)
+        with open(file_name,"w") as f:
+            json.dump(self._data,f)
         
     def write_file(self):
         fh = open("/home/senft/Documents/foodchain-data/sparc/data.txt","w")
@@ -214,6 +243,8 @@ class UnitTest(object):
         self._errors=[]
         self._none=0
         self._nones=[]
+        self._proposed=[]
+        self._selected=[]
 
         if self._meta is None:
             self._timer = Timer(.1, self.prepare_condition)
@@ -228,6 +259,7 @@ class UnitTest(object):
             
         for i,v in enumerate(self._state):
             self._state[i] = random.uniform(0,1)
+
         self.publish_states()
 
         good_actions = self.test_rules()
@@ -250,6 +282,7 @@ class UnitTest(object):
 
         if self._received_action in self._expected_actions:
             good = True
+            self._selected_action = self._received_action
         else:
             if self._received_action is None:
                 self._missing += 1
@@ -269,6 +302,8 @@ class UnitTest(object):
         self._missings.append(self._missing)
         self._errors.append(self._error)
         self._nones.append(self._none)
+        self._proposed.append(self._received_action)
+        self._selected.append(self._selected_action)
         
         self._timer = Timer(self._period, self.get_state)
         self._timer.start()
@@ -305,6 +340,7 @@ class UnitTest(object):
         action = self.test_rules()
 
         if len(action) == 0:
+            self._selected_action = None
             return
         action_selected = random.choice(action)
 
@@ -317,6 +353,7 @@ class UnitTest(object):
             action = random.choice(range(self._n_actions))
 
         reward = 1
+        self._selected_action=action
         self.publish_action(action, mask, reward)
 
     def publish_action(self, action, mask, reward):
@@ -382,13 +419,18 @@ class UnitTest(object):
             plt.legend()
             plt.show()
         else:
-            self._meta.end(self._errors, self._missings, self._nones)
+            self._meta.end(self._errors, self._missings, self._nones, self._proposed, self._selected)
 
     def reset(self):
         self._step=0
         self._missing=0
         self._error=0
         self._none=0
+        self._missings = []
+        self._errors = []
+        self._nones = []
+        self._proposed = []
+        self._selected = []
 
         self._event_pub.publish(String("reset"))
         
