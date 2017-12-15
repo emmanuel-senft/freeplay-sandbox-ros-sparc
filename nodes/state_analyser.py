@@ -33,6 +33,14 @@ PHYSICAL_MAP_HEIGHT = 0.335
 DIAGONAL = PHYSICAL_MAP_WIDTH*PHYSICAL_MAP_WIDTH + PHYSICAL_MAP_HEIGHT*PHYSICAL_MAP_HEIGHT
 RESOLUTION = 0.005 #m per cell
 
+ACTION_ATTENTION = "att"
+ACTION_ENCOURAGEMENT = "encour"
+ACTION_FELICITATION = "congrats"
+ACTION_RULES = "rul"
+ACTION_MOVE = "mv"
+ACTION_TYPES = [ACTION_ATTENTION, ACTION_ENCOURAGEMENT, ACTION_FELICITATION, ACTION_RULES, ACTION_MOVE]
+
+
 class StateAnalyser(object):
     def __init__(self):
         self._tl = tf.TransformListener()
@@ -75,6 +83,8 @@ class StateAnalyser(object):
 
         self._map = None
 
+        self._current_action = None
+
         rospy.loginfo("Ready to play!")
         self._timer = Timer(0.5, self.get_state)
         self._timer.start()
@@ -116,6 +126,14 @@ class StateAnalyser(object):
         #Life of animals
         for value in self._life:
             self._state[index] = value
+            index+=1
+
+        #Last robot actions
+        for s in ACTION_TYPES:
+            if self._current_action == s:
+                self._state[index] = 1
+            else:
+                self._state[index] = self.get_decay_recursive(self._state[index])
             index+=1
 
         #Focus of attention
@@ -179,6 +197,9 @@ class StateAnalyser(object):
         message.data = self._state
         self._state_pub.publish(message)
 
+    def start_action(self, action_type):
+        self._current_action = action_type
+
     def get_pose(self, item, reference=REFERENCE_FRAME):
         #Was slowing down too much 
         #if item not in self._tl.getFrameStrings():
@@ -206,6 +227,7 @@ class StateAnalyser(object):
         elif arguments[0] == "endround":
             self._game_running = False
             self._robot_touch = False
+            self._current_action = None
         elif arguments[0] == "childrelease":
             self._current_touches -= 1
             #If the character moves while the child release, undefined is sent
@@ -220,6 +242,8 @@ class StateAnalyser(object):
             except:
                 idx = np.where(self._characters_touched_robot == True)
             self._robot_touch = False
+            if not self._robot_speaks:
+                self._current_action = None
             self._characters_touched_robot[idx]=False
         elif  arguments[0] == "childtouch": 
             self._current_touches += 1
@@ -261,6 +285,8 @@ class StateAnalyser(object):
         arguments = message.data.split("-")
         if arguments[0] == "blocking_speech_finished":
             self._robot_speaks = False
+            if not self._robot_touch:
+                self._current_action = None
         if arguments[0] == "blocking_speech_started":
             self._robot_speaks = True
 
@@ -279,10 +305,15 @@ class StateAnalyser(object):
         #State used for trigger
         for v in self._targets + self._characters: 
             self._state_label.append("l_"+v)
+
+        for s in ACTION_TYPES:
+            self._state_label.append("last_"+s)
+
         for s in self._focus_labels:
             self._state_label.append("f_"+s)
         self._state_label.append("last_child_action")
         self._state_label.append("last_robot_action")
+
         self._state_label.append("last_feeding")
         self._state_label.append("last_death")
         self._state_label.append("last_failed_interaction")

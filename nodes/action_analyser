@@ -30,6 +30,7 @@ ACTION_RULES = "rul"
 ACTION_MOVE_TO = "mvt"
 ACTION_MOVE_CLOSE = "mvc"
 ACTION_MOVE_AWAY = "mva"
+ACTION_MOVE = "mv"
 
 THRESHOLD_MOVE_TO = 0.0001
 
@@ -173,21 +174,24 @@ class ActionAnalyser(object):
         reward = message.reward
 
         action = message.type 
-        if message.type == "mv":
+        if message.type == ACTION_MOVE:
             action = self.get_action_move(item, message, message.strings)
             if not action.split("_")[2] in message.strings:
                 message.strings.append(action.split("_")[2])
             if reward > 0:
                 self._action_description_pub.publish(String(action))
                 self._state_analyser._robot_touch = True
+                self._state_analyser.start_action(ACTION_MOVE)
         elif message.type == ACTION_ATTENTION:
             action = ACTION_ATTENTION+"_"+message.header.frame_id
             if reward > 0:
                 self._state_analyser._robot_speaks = True
+                self._state_analyser.start_action(ACTION_ATTENTION)
         elif reward > 0:
             self._state_analyser._robot_speaks = True
+            self._state_analyser.start_action(action)
 
-        mask = self.get_mask(message.strings)
+        mask = self.get_mask(message.strings + [message.type])
         action = self._actions.index(action)
 
         self._preparing_action = False
@@ -245,7 +249,7 @@ class ActionAnalyser(object):
             mask[idx]=l[1] in strings
             if len(l)>2:
                 mask[idx] = mask[idx] and l[2] in strings
-        mask[-4-len(self._state_analyser._child_focus):]=True
+        mask[-5-len(self._state_analyser._child_focus):]=True
         return mask
 
     def publish_action(self, action, mask, reward):
