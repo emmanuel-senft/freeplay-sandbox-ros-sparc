@@ -34,7 +34,7 @@ const double RESOLUTION=0.005; // m per cell
 
 const double delayBeforeExecuting = 0.; // sec
 const double t0 = 0.; //sec - extra time for the robot to get to the first point in traj
-const double dt = 0.1; //sec - seconds between points in traj
+const double dt = 0.06; //sec - seconds between points in traj
 
 typedef std::pair<int, int> Location;
 
