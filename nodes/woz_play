@@ -129,6 +129,12 @@ class Player(object):
             if self._moving_item:
                 self.event_release.clear()
                 self._motion.cancel_goal()
+        if msg.data == "robottouch_none":
+            self._motion.cancel_goal()
+        if msg.data.startswith("childtouch_"):
+            arg=msg.data.split("_")[1]
+            if arg == self._moving_item:
+                self._motion.cancel_goal()
 
     def on_nao_event(self, msg):
         if msg.data == "blocking_speech_finished" and self._waiting_speech:
