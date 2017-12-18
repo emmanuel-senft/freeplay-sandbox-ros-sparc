@@ -167,15 +167,22 @@ public:
 
             if (kv.first == _inhibitedFrame) continue;
 
-            vector<cv::Point> poly;
 
-            for (const auto& p : kv.second) {
-                geometry_msgs::PointStamped base_point;
-                listener.transformPoint(reference_frame, p, base_point);
-                poly.push_back(cv::Point(base_point.point.x / RESOLUTION, -base_point.point.y / RESOLUTION));
+            try {
+                vector<cv::Point> poly;
+
+                for (const auto& p : kv.second) {
+                    geometry_msgs::PointStamped base_point;
+                    listener.transformPoint(reference_frame, p, base_point);
+                    poly.push_back(cv::Point(base_point.point.x / RESOLUTION, -base_point.point.y / RESOLUTION));
+                }
+
+                fillConvexPoly(occupancygrid,poly,0);
             }
-
-            fillConvexPoly(occupancygrid,poly,0);
+            catch (tf2::LookupException ex) {
+                ROS_WARN_STREAM("Got bounding box for " << kv.first << " but corresponding frame not yet published");
+                continue;
+            }
         }
 
         flip(occupancygrid, occupancygrid,0);
