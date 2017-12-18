@@ -1,9 +1,9 @@
-
 <launch>
     <arg name="duration"             default="40m" />
-    <arg name="output_file"          default="foodchain" />
+    <arg name="output_folder"          default="/home/hri/Documents/foodchain-data/test/" />
+    <arg name="output_name"          default="test" />
 
-    <arg name="topics" default=
+    <arg name="topics1" default=
         "/tf
         /nao/blocking_speech
         /nao/events
@@ -20,9 +20,19 @@
         /graph
         " 
         />
+    <arg name="topics2" default=
+        "/camera_env/rgb/image_raw/compressed
+        /camera_purple/rgb/image_raw/compressed
+        "
+        />
 
      <node pkg="rosbag" type="record" name="rosbag_record_freeplay_sandbox"
-         args="--output-name $(arg output_file) $(arg topics) --duration=$(arg duration)"
+         args="$(eval '--output-name '+arg('output_folder')+'bags/'+arg('output_name')+' '+ arg('topics1')+' --duration='+arg('duration'))"
          output="screen" required="true" />
+
+     <node pkg="rosbag" type="record" name="rosbag_record_freeplay_sandbox_video"
+         args="$(eval '--output-name '+arg('output_folder')+'videos/'+arg('output_name')+' '+ arg('topics2')+' --duration='+arg('duration'))"
+         output="screen" required="true" />
+
 
 </launch>

@@ -1,5 +1,5 @@
 <launch>
-    <include file="$(find freeplay_sparc)/launch/sr300.launch">
+    <include file="$(find freeplay_sparc)/launch/dual_sr300.launch">
     </include>
     <arg name="image" default="/camera_purple/rgb/image_raw" />
 

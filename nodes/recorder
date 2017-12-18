@@ -23,13 +23,14 @@ class Launcher(object):
                 self._p.send_signal(signal.SIGINT)
 
     def record(self):
-        p = os.path.expanduser('~')+"/Documents/foodchain-data/bags/"+datetime.datetime.now().isoformat()
-        p = p.split(".")[0]
+        p = os.path.expanduser('~')+"/Documents/foodchain-data/"
+        name = str(datetime.datetime.now().isoformat())
+        name = name.split(".")[0]
         print p
 
         if not self._p is None:
             self._p.kill()
-        self._p = subprocess32.Popen(["roslaunch", "freeplay_sparc", "record.launch","output_file:="+p])
+        self._p = subprocess32.Popen(["roslaunch", "freeplay_sparc", "record.launch","output_folder:="+p,"output_name:="+name])
 
     def run(self):
         rospy.spin()
