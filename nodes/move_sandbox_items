@@ -91,13 +91,11 @@ class PlaygroundTrajTrackerAction(object):
 
 
         success = self.play_traj(path)
+        self._pub_event.publish(String("motion_finished"))
 
         if success:
             rospy.loginfo('%s: Succeeded' % self._action_name)
             self._as.set_succeeded(self._result)
-
-        if len(path.poses) <= 1:
-            self._pub_event_interaction.publish(String("robotrelease_undefined"))
 
     def play_traj(self,requested_traj):
 
@@ -149,7 +147,6 @@ class PlaygroundTrajTrackerAction(object):
         pub_poses.publish(requested_traj.poses[len(requested_traj.poses)-1])
         written_points.append(p)
         visualize_traj(written_points)
-        self._pub_event.publish(String("motion_finished"))
 
         return True
 

@@ -135,7 +135,8 @@ class Player(object):
             arg=msg.data.split("_")[1]
             if arg == self._moving_item:
                 self._motion.cancel_goal()
-
+		self._moving_item = None
+	
     def on_nao_event(self, msg):
         if msg.data == "blocking_speech_finished" and self._waiting_speech:
             self._event_pub.publish(String(self._waiting_speech + "_finished"))
@@ -143,6 +144,8 @@ class Player(object):
         if msg.data == "pointing_finished" and self._waiting_pointing:
             self._event_pub.publish(String(self._waiting_pointing + "_finished"))
             self._waiting_pointing = None
+	if msg.data == "motion_finished":
+		self._moving_item = None
 
     def get_pose(self,item, reference=REFERENCE_FRAME):
         if item not in self._tl.getFrameStrings():
