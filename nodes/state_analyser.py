@@ -248,8 +248,9 @@ class StateAnalyser(object):
             self._current_touches += 1
             self._characters_touched_child[self._characters.index(arguments[1])]=True
         elif  arguments[0] == "robottouch":
-            self._characters_touched_robot[self._characters.index(arguments[1])]=True
-            self._robot_touch = True
+            if arguments[1] in self._characters:
+                self._characters_touched_robot[self._characters.index(arguments[1])]=True
+                self._robot_touch = True
         elif arguments[0] == "characters" and len(self._characters) == 0:
             for i in range(1,len(arguments)):
                 self._characters.append(arguments[i].split(",")[0])
