@@ -22,7 +22,9 @@
         />
     <arg name="topics2" default=
         "/camera_env/rgb/image_raw/compressed
+        /camera_env/audio
         /camera_purple/rgb/image_raw/compressed
+        /camera_purple/audio
         "
         />
 

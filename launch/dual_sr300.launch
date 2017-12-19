@@ -20,9 +20,9 @@
 
     <arg name="enable_ir"	default="false"/>
  
-    <arg name="enable_audio"    default="false" /> <!-- if true, start audio capturing on the 2 cameras - you might have to set audio_device1 and audio_device2! -->
-    <arg name="audio_device1"   default="hw:4" /> <!-- the audio device for the first camera - check arecord -l -->
-    <arg name="audio_device2"   default="hw:3" /> <!-- the audio device for the second camera - check arecord -l -->
+    <arg name="enable_audio"    default="true" /> <!-- if true, start audio capturing on the 2 cameras - you might have to set audio_device1 and audio_device2! -->
+    <arg name="audio_device1"   default="hw:3" /> <!-- the audio device for the first camera - check arecord -l -->
+    <arg name="audio_device2"   default="hw:2" /> <!-- the audio device for the second camera - check arecord -l -->
     <arg name="sample_rate"     default="16000" /> 
     <arg name="channels"        default="1" /> 
 
