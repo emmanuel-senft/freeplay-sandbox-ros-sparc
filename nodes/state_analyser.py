@@ -221,7 +221,6 @@ class StateAnalyser(object):
             self._state = np.zeros(len(self._state_label))
             self._characters_touched_child = np.full(len(self._characters), False, dtype=bool)
             self._characters_touched_robot = np.full(len(self._characters), False, dtype=bool)
-            self._child_focus =  np.full(len(self._focus_labels), False, dtype=bool)
             self.get_state()
 
         elif arguments[0] == "endround":
