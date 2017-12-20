@@ -120,6 +120,7 @@ class ActionAnalyser(object):
         else:
             message_out.header.frame_id = "sandtray"
         message_out.header.stamp = rospy.Time(0)
+        message_out.reward = message.reward
             
         if action_strings[0].startswith("mv"):
             goal = None
