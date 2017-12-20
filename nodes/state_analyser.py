@@ -275,7 +275,7 @@ class StateAnalyser(object):
         if len(self._characters) > 0 and len(self._targets) > 0 and not self._initialised:
             self.init_label()
 
-    def discrete_increase(self, value, parameter = .6):
+    def discrete_increase(self, value, parameter = 1):
         value += parameter 
         if value > 1/np.exp(-1/10.):
             value = 1/np.exp(-1/10.)
