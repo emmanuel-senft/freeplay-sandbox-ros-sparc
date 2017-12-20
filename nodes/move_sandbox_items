@@ -153,7 +153,7 @@ class PlaygroundTrajTrackerAction(object):
     def wait_for_pointing_finished(self):
         print "Start waiting"
         self._event.clear()
-        self._event.wait(5)
+        self._event.wait(2)
         print "stop waiting"
     
     def on_event(self, message):
