@@ -48,7 +48,7 @@ class Player(object):
         self._sentences_look_said = []
         self._sentences_move = ["Let's move the x y z ", "Look, the x wants to go y z ", "Let's take the x y z ", "The x needs help getting y z "]
         self._sentences_move_said = []
-        self._sentences_rules = ["Animals need to eat to stay alive." , "Move the animals to feed them.", "Feed the animals with a low energy"]
+        self._sentences_rules = ["Don't feed animal with a lot of energy." , "Move the animals to feed them.", "Feed the animals with a low energy"]
         self._sentences_rules_said = []
         self._init = True
 
