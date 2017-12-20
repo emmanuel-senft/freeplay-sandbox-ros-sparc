@@ -190,7 +190,8 @@ class Actor(object):
     def add_point(self, action, state, reward, loading = False):
         if DEBUG:
             print "Threshold "+str(self._threshold)
-        for known_action in self._actions:
+        idxDelete = None
+        for i, known_action in enumerate(self._actions):
             if known_action._action == action:
                 if not loading:
                     previous_sim = max(self.get_similarity_states(known_action._states, self._state))
@@ -199,13 +200,22 @@ class Actor(object):
                             self._threshold -= ( self._threshold - previous_sim) / self._threshold_factor_decrease
                         if reward <= 0 and previous_sim > self._threshold:
                             self._threshold += (previous_sim-self._threshold) / self._threshold_factor_increase
-                reshaped_state=ma.reshape(state, (1,state.shape[0]))
-                known_action._states=ma.masked_array(np.append(known_action._states.data,reshaped_state.data,axis=0),mask=np.append(known_action._states.mask,reshaped_state.mask,axis=0))
-                known_action._rewards= np.append(known_action._rewards,reward)
+                    # A reward below 5 means the action should be removed, not even negatively rewarded
+                    if reward < -5:
+                        self.remove_point(known_action, state.mask)
+                        idxDelete = i
+                if reward > -5:
+                    reshaped_state=ma.reshape(state, (1,state.shape[0]))
+                    known_action._states=ma.masked_array(np.append(known_action._states.data,reshaped_state.data,axis=0),mask=np.append(known_action._states.mask,reshaped_state.mask,axis=0))
+                    known_action._rewards= np.append(known_action._rewards,reward)
                 break
         else:
             new_action = Action(action, state, reward)
             self._actions.append(new_action)
+
+        if not idxDelete is None:
+            if len(self._actions[idxDelete]._states) == 0:
+                del self._actions[idxDelete]
 
         #Trigger state    
         if reward > 0:
@@ -222,6 +232,15 @@ class Actor(object):
             else:
                 reshaped_waiting_states = ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
                 self._waiting_states = ma.append(self._waiting_states,reshaped_waiting_states, axis=0) 
+
+    def remove_point(self, action, state_mask):
+        similarity = self.get_similarity_states(action._states, self._state)     
+        idx = np.nanargmax(similarity)
+        if action._rewards[idx]>0:
+            data = np.delete(action._states.data,idx,0)
+            m = np.delete(action._states.mask,idx,0)
+            action._states = ma.array(data, mask=m)
+            action._rewards = np.delete(action._rewards,idx,0)
 
 class Action(object):
     def __init__(self, act, state, reward):
