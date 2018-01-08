@@ -240,8 +240,9 @@ def get_answer(question):
         return "je ne sais quoi"
 
 def on_answer(message):
-    messagestr = str(message)
+    messagestr = message.data
     result,question = messagestr.split(',')
+    rospy.loginfo("Giving %s answer to quiz" % result)
     answer = get_answer(int(question))
     msg = answer
     if result == "incorrect":
