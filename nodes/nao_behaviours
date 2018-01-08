@@ -10,6 +10,7 @@ from naoqi import ALModule, ALBroker, ALProxy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path
 from std_msgs.msg import String
+from std_msgs.msg import Empty
 import rospy
 import tf
 import motion
@@ -229,24 +230,25 @@ def on_backchannel(message):
     pub_speech.publish(String(msg))
     
 def get_answer(question):
-	if question == 1:
-		return "sur la chaise"
-	elif question == 2:
-		return "sous la chaise"
-	elif question == 3:
-		return "derriere la chaise"
-	else:
-		return "je ne sais quoi"
+    if question == 1:
+        return "sur la chaise"
+    elif question == 2:
+        return "sous la chaise"
+    elif question == 3:
+        return "derriere la chaise"
+    else:
+        return "je ne sais quoi"
 
 def on_answer(message):
-	result,question = message.split(",")
-	answer = get_answer(question)
-	msg = answer
-	if result == "incorrect":
-		ans_list = ["sur la chaise", "sous la chaise", "derriere la chaise"]
-		if answer in ans_list:
-			ans_list.remove(answer)
-		msg = random.choice(ans_list)
+    messagestr = str(message)
+    result,question = messagestr.split(',')
+    answer = get_answer(int(question))
+    msg = answer
+    if result == "incorrect":
+        ans_list = ["sur la chaise", "sous la chaise", "derriere la chaise"]
+        if answer in ans_list:
+            ans_list.remove(answer)
+        msg = random.choice(ans_list)
     
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
     pub_speech.publish(String(msg))
@@ -259,10 +261,10 @@ def on_quiz_feedback(message):
         msg = random.choice(["It was a good try at least.", "It is tricky, but good attempt.", "Good effort!"])
     pub_speech.publish(String(msg))
     
-def on_quiz_encourage(message):
-	pub_speech = rospy.Publisher("/speech", String, queue_size=5)
-	msg = random.choice(["You can do it! Give it a go.", "Just have a guess!", "La chien est.", "If you don't try, you can't suceed."])
-	pub_speech.publish(String(msg))
+def on_encourage(message):
+    pub_speech = rospy.Publisher("/speech", String, queue_size=5)
+    msg = random.choice(["You can do it! Give it a go.", "Just have a guess!", "La chien est.", "If you don't try, you can't succeed."])
+    pub_speech.publish(String(msg))
 
 
 class FallResponder(ALModule):
@@ -298,7 +300,7 @@ if __name__ == "__main__":
     sub_backchannel = rospy.Subscriber("nao/backchannel/standard", String, on_backchannel, queue_size=1)
     sub_quiz_answer = rospy.Subscriber("nao/prod_quiz/answer", String, on_answer, queue_size=1)
     sub_quiz_feedback = rospy.Subscriber("nao/prod_quiz/feedback", String, on_quiz_feedback, queue_size=1)
-    sub_quiz_encourage = rospy.Subscriber("nao/prod_quiz/encourage" Empty, on_encourage, queue_size=1)
+    sub_quiz_encourage = rospy.Subscriber("nao/prod_quiz/encourage", Empty, on_encourage, queue_size=1)
 
     # We need this broker to be able to construct
     # NAOqi modules and subscribe to other modules
