@@ -247,10 +247,10 @@ class ActionAnalyser(object):
 #            mask = [v.startswith("d") and (s in v.split("_") and mask[i]) or v.startswith("l") and (s in v.split("_") or mask[i]) for i,v in enumerate(self._state_analyser._state_label)]
         for idx,s in enumerate(self._state_analyser._state_label):
             l = s.split("_")
-            mask[idx]=l[1] in strings
+            mask[idx]=l[0] in strings or l[1] in strings
             if len(l)>2:
                 mask[idx] = mask[idx] and l[2] in strings
-        mask[-5-len(self._state_analyser._child_focus):]=True
+        mask[-5:]=True
         return mask
 
     def publish_action(self, action, mask, reward):

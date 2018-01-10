@@ -310,7 +310,7 @@ class StateAnalyser(object):
             self._state_label.append("last_"+s)
 
         for s in self._focus_labels:
-            self._state_label.append("f_"+s)
+            self._state_label.append("looking_"+s)
         self._state_label.append("last_child_action")
         self._state_label.append("last_robot_action")
 
