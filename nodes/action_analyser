@@ -269,6 +269,8 @@ class ActionAnalyser(object):
         arguments = event.data.split("_")
         if arguments[0] == "reset":
             Timer(2, self.reset_prop).start()
+        elif event.data == "sup_act_skip":
+            Timer(2, self.reset_prop).start()
         elif arguments[0] == "endround":
             self._proposing_action = False
             self._preparing_action = False
