@@ -9,6 +9,6 @@
         <remap from="/rgb" to="$(arg image)"/>
     </node>
 
-    <node pkg="freeplay_sparc" type="point_gaze_check" name="point_gaze_check" output="screen"/>
+    <node pkg="freeplay_sparc" type="focus_gaze" name="focus_gaze" output="screen"/>
 
 </launch>

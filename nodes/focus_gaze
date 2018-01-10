@@ -150,7 +150,10 @@ def bridge():
         br.sendTransform(t)
 
 	gaze = np.array(gaze)
-        if np.all(gaze > [-.1,-SANDTRAY_HEIGHT-.1]) and np.all(gaze < [SANDTRAY_WIDTH+.1,.1]):
+	lateral_offset = .2
+	vertical_offset_high = 1
+	vertical_offset_low = .0
+        if np.all(gaze > [-lateral_offset,-SANDTRAY_HEIGHT-vertical_offset_low]) and np.all(gaze < [SANDTRAY_WIDTH+lateral_offset,vertical_offset_high]):
             looking_other = False
             looking_robot = False
             looking_lost = False
@@ -165,7 +168,7 @@ def bridge():
                     angle = math.atan2(math.sqrt(target_vector.z*target_vector.z+target_vector.y*target_vector.y),target_vector.x)
                 except:
                     continue
-                if angle < DEFAULT_FOV:
+                if angle < 2*DEFAULT_FOV:
                     looking_other = False
                     looking_sandtray = False
                     looking_lost = False
