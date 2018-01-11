@@ -50,6 +50,8 @@ class ActionAnalyser(object):
         self._proposing_action = False
         self._preparing_action = False
         
+        self._autonomous = False
+        
         self._actions = []
 
         if DEBUG:
@@ -196,7 +198,8 @@ class ActionAnalyser(object):
         action = self._actions.index(action)
 
         self._preparing_action = False
-        self.publish_action(action, mask, reward)
+        if not self._autonomous:
+            self.publish_action(action, mask, reward)
 
         if DEBUG:
             print mask
@@ -274,6 +277,8 @@ class ActionAnalyser(object):
         elif arguments[0] == "endround":
             self._proposing_action = False
             self._preparing_action = False
+        if arguments[0] == "record":
+            self._autonomous = (arguments[2] == "autonomous")
 
     def signal_handler(self, signal, frame):
         self._stopping = True
