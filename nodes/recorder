@@ -14,19 +14,19 @@ class Launcher(object):
         self._p = None
 
     def on_event(self, message):
-        if message.data == "record":
-            self.record()
+        if message.data.startswith("record"):
+            s = message.data.split("_")
+            self.record(s[1],s[2])
             print "start"
         elif message.data == "stoprecord":
             print "stop"
             if not self._p is None:
                 self._p.send_signal(signal.SIGINT)
 
-    def record(self):
-        p = os.path.expanduser('~')+"/Documents/foodchain-data/"
+    def record(self, sparcMode, autonomousMode):
+        p = os.path.expanduser('~')+"/Documents/foodchain-data/condition-"+sparcMode+"-"+autonomousMode
         name = str(datetime.datetime.now().isoformat())
         name = name.split(".")[0]
-        print p
 
         if not self._p is None:
             self._p.kill()
