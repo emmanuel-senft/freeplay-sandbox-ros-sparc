@@ -11,6 +11,7 @@ from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path
 from std_msgs.msg import String
 from std_msgs.msg import Empty
+from time import sleep
 import rospy
 import tf
 import motion
@@ -235,7 +236,21 @@ def get_answer(question):
     elif question == 2:
         return "sous la chaise"
     elif question == 3:
-        return "derriere la chaise"
+        return "devant la chaise"
+    elif question == 4:
+        return "devant la chaise"
+    elif question == 5:
+        return "sous la chaise"
+    elif question == 6:
+        return "sur la chaise"
+    elif question == 7:
+        return "sur la chaise"
+    elif question == 8:
+        return "devant la chaise"
+    elif question == 9:
+        return "sous la chaise"
+    elif question == 10:
+        return "sur la chaise"
     else:
         return "je ne sais quoi"
 
@@ -245,14 +260,27 @@ def on_answer(message):
     rospy.loginfo("Giving %s answer to quiz" % result)
     answer = get_answer(int(question))
     msg = answer
+    post_msg = "skip"
     if result == "incorrect":
-        ans_list = ["sur la chaise", "sous la chaise", "derriere la chaise"]
+        ans_list = ["sur la chaise", "sous la chaise", "devant la chaise"]
         if answer in ans_list:
             ans_list.remove(answer)
         msg = random.choice(ans_list)
+        post_msg = random.choice(["That must have been wrong, ", "I guess I got it wrong, ", "Hmm, a tricky one, but at least I had a go, "])
+        if (int(question))%2 == 1:
+            pp_msg = random.choice(["now you get to have a go at this question", "looks like you can have an attempt now", "it's your turn to try."])
+        else:
+            pp_msg = random.choice(["we were both wrong, but we will try hard on the next one!", "we both tried, lets see what the next question is.", "time to move onto the next question"])
+            
+        post_msg = post_msg + pp_msg
     
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
     pub_speech.publish(String(msg))
+    
+    if post_msg != "skip":
+        sleep(2) # Wait two seconds
+        pub_speech.publish(String(post_msg))
+        
 
 def on_quiz_feedback(message):
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
@@ -264,7 +292,7 @@ def on_quiz_feedback(message):
     
 def on_encourage(message):
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
-    msg = random.choice(["You can do it! Give it a go.", "Just have a guess!", "La chien est.", "If you don't try, you can't succeed."])
+    msg = random.choice(["You can do it! Give it a go.", "Just have a guess!", "If you don't try, you can't succeed."])
     pub_speech.publish(String(msg))
 
 
