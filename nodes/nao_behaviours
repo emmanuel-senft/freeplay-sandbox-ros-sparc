@@ -236,9 +236,9 @@ def get_answer(question):
     elif question == 2:
         return "sous la chaise"
     elif question == 3:
-        return "devant la chaise"
+        return "deh vaugn la chaise"
     elif question == 4:
-        return "devant la chaise"
+        return "deh vaugn la chaise"
     elif question == 5:
         return "sous la chaise"
     elif question == 6:
@@ -246,7 +246,7 @@ def get_answer(question):
     elif question == 7:
         return "sur la chaise"
     elif question == 8:
-        return "devant la chaise"
+        return "deh vaugn la chaise"
     elif question == 9:
         return "sous la chaise"
     elif question == 10:
@@ -262,7 +262,7 @@ def on_answer(message):
     msg = answer
     post_msg = "skip"
     if result == "incorrect":
-        ans_list = ["sur la chaise", "sous la chaise", "devant la chaise"]
+        ans_list = ["sur la chaise", "sous la chaise", "deh vaugn la chaise"]
         if answer in ans_list:
             ans_list.remove(answer)
         msg = random.choice(ans_list)
