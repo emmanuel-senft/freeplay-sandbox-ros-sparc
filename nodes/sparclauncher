@@ -27,7 +27,10 @@ class Launcher(object):
         if not self._p is None:
             self._p.kill()
         if sparcMode == "sparc":
-            self._p = subprocess32.Popen(["roslaunch", "freeplay_sparc", "sparc.launch"])
+            if autonomousMode == "autonomous":
+                self._p = subprocess32.Popen(["roslaunch", "freeplay_sparc", "sparc.launch","autonomous:=True"])
+            else:
+                self._p = subprocess32.Popen(["roslaunch", "freeplay_sparc", "sparc.launch","autonomous:=False"])
 
     def run(self):
         rospy.spin()

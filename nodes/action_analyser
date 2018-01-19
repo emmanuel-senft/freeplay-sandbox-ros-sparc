@@ -50,7 +50,7 @@ class ActionAnalyser(object):
         self._proposing_action = False
         self._preparing_action = False
         
-        self._autonomous = False
+        self._autonomous = rospy.get_param("~autonomous",False)
         
         self._actions = []
 
