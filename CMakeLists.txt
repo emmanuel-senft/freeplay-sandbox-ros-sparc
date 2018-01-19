@@ -124,6 +124,7 @@ catkin_install_python(PROGRAMS
     nodes/transformations.py
     nodes/focus_gaze
     nodes/recorder
+    nodes/sparclauncher
     nodes/unit_test
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
