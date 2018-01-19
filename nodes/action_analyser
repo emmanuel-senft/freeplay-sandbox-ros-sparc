@@ -31,6 +31,7 @@ ACTION_MOVE_TO = "mvt"
 ACTION_MOVE_CLOSE = "mvc"
 ACTION_MOVE_AWAY = "mva"
 ACTION_MOVE = "mv"
+ACTION_WAIT = "wait"
 
 THRESHOLD_MOVE_TO = 0.0001
 
@@ -79,6 +80,8 @@ class ActionAnalyser(object):
             if not self.init_actions():
                 return 
         print str(self._proposing_action) + " " + str(self._state_analyser._robot_touch) + " " + str( self._state_analyser._robot_speaks) + " " + str(self._preparing_action)
+        if message.action_id == self._actions.index(ACTION_WAIT):
+            return
         if self._proposing_action or self._state_analyser._robot_touch or self._state_analyser._robot_speaks or self._preparing_action:
             return
         self._proposing_action = True
@@ -220,6 +223,7 @@ class ActionAnalyser(object):
         self._actions.append(ACTION_FELICITATION)
         self._actions.append(ACTION_ENCOURAGEMENT)
         self._actions.append(ACTION_RULES)
+        self._actions.append(ACTION_WAIT)
         return True
 
     def get_action_move(self, item, pose, init_strings):
@@ -273,6 +277,7 @@ class ActionAnalyser(object):
         if arguments[0] == "reset":
             Timer(2, self.reset_prop).start()
         elif event.data == "sup_act_skip":
+            self.publish_action(self._actions.index(ACTION_WAIT), self.get_mask(""),1)
             Timer(2, self.reset_prop).start()
         elif arguments[0] == "endround":
             self._proposing_action = False
