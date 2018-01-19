@@ -24,9 +24,9 @@ class Launcher(object):
                 self._p.send_signal(signal.SIGINT)
 
     def record(self, sparcMode, autonomousMode):
-        p = os.path.expanduser('~')+"/Documents/foodchain-data/condition-"+sparcMode+"-"+autonomousMode
+        p = os.path.expanduser('~')+"/Documents/foodchain-data/"
         name = str(datetime.datetime.now().isoformat())
-        name = name.split(".")[0]
+        name = "condition-"+sparcMode+"-"+autonomousMode+"/"+name.split(".")[0]
 
         if not self._p is None:
             self._p.kill()
