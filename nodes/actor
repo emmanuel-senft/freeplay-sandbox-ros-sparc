@@ -31,7 +31,7 @@ class Actor(object):
         self._waiting_states = []
 
         self._state = None
-        self._init_threshold = .5
+        self._init_threshold = .8
         self._use_fixed_threshold = False
         self._threshold = self._init_threshold
         self._threshold_factor_decrease = 10
