@@ -31,6 +31,8 @@ class Actor(object):
         self._trigger_states = []
         self._waiting_states = []
 
+        self._use_trigger_states = False
+
         self._state = None
         self._init_threshold = .8
         self._use_fixed_threshold = False
@@ -220,20 +222,21 @@ class Actor(object):
                 del self._actions[idxDelete]
 
         #Trigger state    
-        if reward > 0:
-            if len(self._trigger_states) == 0:
-                self._trigger_states=ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
-            else:
-                reshaped_trigger_states = ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
-                self._trigger_states = ma.append(self._trigger_states,reshaped_trigger_states, axis=0) 
+        if self._use_trigger_states:
+            if reward > 0:
+                if len(self._trigger_states) == 0:
+                    self._trigger_states=ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
+                else:
+                    reshaped_trigger_states = ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
+                    self._trigger_states = ma.append(self._trigger_states,reshaped_trigger_states, axis=0) 
 
-        # A reward of 0 indicate a waiting action
-        if reward == 0:
-            if len(self._waiting_states) == 0:
-                self._waiting_states=ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
-            else:
-                reshaped_waiting_states = ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
-                self._waiting_states = ma.append(self._waiting_states,reshaped_waiting_states, axis=0) 
+            # A reward of 0 indicate a waiting action
+            if reward == 0:
+                if len(self._waiting_states) == 0:
+                    self._waiting_states=ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
+                else:
+                    reshaped_waiting_states = ma.reshape(state[-self._trigger_number:],(1,self._trigger_number))
+                    self._waiting_states = ma.append(self._waiting_states,reshaped_waiting_states, axis=0) 
 
     def remove_point(self, action, state_mask):
         similarity = self.get_similarity_states(action._states, self._state)     
