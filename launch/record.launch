@@ -16,6 +16,7 @@
         /sparc/proposed_action
         /sparc/proposed_action_dis
         /sparc/action_description
+        /sparc/threshold
         /poses
         /graph
         " 

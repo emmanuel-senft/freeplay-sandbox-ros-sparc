@@ -9,7 +9,7 @@ import json
 
 import rospy
 from freeplay_sandbox_msgs.msg import DiscreteAction, ListFloatStamped 
-from std_msgs.msg import String
+from std_msgs.msg import String, Float32
 import signal, sys
 import os
 
@@ -19,11 +19,12 @@ DEFAULT_TRIGGER_NUMBER = 17
 class Actor(object):
     def __init__(self):
 
-        self._state_sub = rospy.Subscriber("sparc/state", ListFloatStamped, self.on_state)
+        self._state_sub = rospy.Subscriber("sparc/state", ListFloatStamped, self.on_state, queue_size = 1)
         self._action_sub = rospy.Subscriber("sparc/selected_action_dis",DiscreteAction, self.on_action)
         self._event_sub = rospy.Subscriber("sparc/event", String, self.on_event)
 
         self._action_pub = rospy.Publisher("sparc/proposed_action_dis", DiscreteAction, queue_size = 5)
+        self._threshold_pub = rospy.Publisher("sparc/threshold", Float32, queue_size = 5)
         self._trigger_number = rospy.get_param('~trigger_number', DEFAULT_TRIGGER_NUMBER)
 
         self._actions = []
@@ -200,6 +201,7 @@ class Actor(object):
                             self._threshold -= ( self._threshold - previous_sim) / self._threshold_factor_decrease
                         if reward <= 0 and previous_sim > self._threshold:
                             self._threshold += (previous_sim-self._threshold) / self._threshold_factor_increase
+                        self._threshold_pub.publish(self._threshold)
                     # A reward below 5 means the action should be removed, not even negatively rewarded
                     if reward < -5:
                         self.remove_point(known_action, state.mask)
