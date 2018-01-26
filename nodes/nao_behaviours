@@ -63,6 +63,8 @@ def xyz2pantilt(pose, headframe=HEAD_FRAME):
     return (pan,tilt)
 
 def look_at(pose):
+    if trackerProxy.isActive():
+        trackerProxy.stopTracker()  
     yaw, pitch = xyz2pantilt(pose)
     yaw = clamp(yaw, (-2.0857, 2.0857))
     pitch = clamp(-pitch, (-0.6720, 0.5149)) #beware the '-pitch'!
@@ -295,6 +297,16 @@ def on_encourage(message):
     msg = random.choice(["You can do it! Give it a go.", "Just have a guess!", "If you don't try, you can't succeed."])
     pub_speech.publish(String(msg))
 
+def start_prod_expl():
+    
+    msg = "We are going to play a game using the words you were taught this morning!"
+    msg = msg + " This game is called, ou est la nounours, or where is the teddy bear."
+    msg = msg + " On the screen in front of us we can see a nounours with la chaise."
+    msg = msg + " Using the words we were taught this morning we need to say where le nounours is in relation to la chaise!"
+    msg = msg + " We each score points based on the ones we get right!"
+    msg = msg + " I'll try the first one to show you how it works."
+
+    AnmtdSpchProxy.say(msg)
 
 class FallResponder(ALModule):
   """ Module to react to robotHasFallen events """
@@ -330,6 +342,7 @@ if __name__ == "__main__":
     sub_quiz_answer = rospy.Subscriber("nao/prod_quiz/answer", String, on_answer, queue_size=1)
     sub_quiz_feedback = rospy.Subscriber("nao/prod_quiz/feedback", String, on_quiz_feedback, queue_size=1)
     sub_quiz_encourage = rospy.Subscriber("nao/prod_quiz/encourage", Empty, on_encourage, queue_size=1)
+    sub_quiz_start = rospy.Subscriber("nao/prod_quiz/start", Empty, start_prod_expl, queue_size=1)
 
     # We need this broker to be able to construct
     # NAOqi modules and subscribe to other modules
@@ -343,7 +356,9 @@ if __name__ == "__main__":
     hasFallen = False;
     motionProxy = ALProxy("ALMotion", NAO_IP, port);
     memoryProxy = ALProxy("ALMemory", NAO_IP, port);
-    postureProxy = ALProxy("ALRobotPosture", NAO_IP, port)
+    postureProxy = ALProxy("ALRobotPosture", NAO_IP, port);
+    trackerProxy = ALProxy("ALTracker", NAO_IP, port);
+    AnmtdSpchProxy = ALProxy("ALAnimatedSpeech", NAO_IP, port);
     #fallResponder = FallResponder("fallResponder",motionProxy,memoryProxy);
 
     motionProxy.wbEnableEffectorControl(effector,False); #if robot has fallen it will have a hard time getting up if the effector is still trying to be kept in a particular position
@@ -398,10 +413,17 @@ if __name__ == "__main__":
 
 
         if last_pose and (rospy.Time.now() - last_pose).to_sec() > 5:
-            if (rospy.Time.now() - last_pose).to_sec() < 30:
-                arm_between_pointing_posture()
-            else:
-                arm_to_rest_posture()
+            #if (rospy.Time.now() - last_pose).to_sec() < 30:
+            arm_between_pointing_posture()
+            #else:
+                #arm_to_rest_posture()
+
+        if last_pose and (rospy.Time.now() - last_pose).t_sec() > 1
+            if not trackerProxy.isActive():
+                trackerProxy.lookAt([1,0,.2], 0, .1,False)
+                self._trackerProxy.registerTarget("Face",.2)
+                self._trackerProxy.track("Face")
+            
 
         r.sleep()
 
