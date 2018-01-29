@@ -308,6 +308,15 @@ def start_prod_expl():
 
     AnmtdSpchProxy.say(msg)
 
+def on_message(message):
+    messagestr = message.data
+    animated,msg = messagestr.split(',') #"animated,what was that in french?"
+    if (animated == "animated"):
+        AnmtdSpchProxy.say(String(msg))
+    else:
+        pub_speech = rospy.Publisher("/speech", String, queue_size=5)
+        pub_speech.publish(String(msg))
+
 class FallResponder(ALModule):
   """ Module to react to robotHasFallen events """
 
@@ -343,6 +352,7 @@ if __name__ == "__main__":
     sub_quiz_feedback = rospy.Subscriber("nao/prod_quiz/feedback", String, on_quiz_feedback, queue_size=1)
     sub_quiz_encourage = rospy.Subscriber("nao/prod_quiz/encourage", Empty, on_encourage, queue_size=1)
     sub_quiz_start = rospy.Subscriber("nao/prod_quiz/start", Empty, start_prod_expl, queue_size=1)
+    sub_quiz_msg = rospy.Subscriber("nao/prod_quiz/message", String, on_message, queue_size=1)
 
     # We need this broker to be able to construct
     # NAOqi modules and subscribe to other modules
