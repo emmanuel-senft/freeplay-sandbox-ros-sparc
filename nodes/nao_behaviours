@@ -64,7 +64,7 @@ def xyz2pantilt(pose, headframe=HEAD_FRAME):
 
 def look_at(pose):
     if trackerProxy.isActive():
-        trackerProxy.stopTracker()  
+        trackerProxy.stopTracker()
     yaw, pitch = xyz2pantilt(pose)
     yaw = clamp(yaw, (-2.0857, 2.0857))
     pitch = clamp(-pitch, (-0.6720, 0.5149)) #beware the '-pitch'!
@@ -231,7 +231,7 @@ def on_backchannel(message):
     else:
         msg = random.choice(["Here?","Yes?","Here I think","There?","Ok?"])
     pub_speech.publish(String(msg))
-    
+
 def get_answer(question):
     if question == 1:
         return "sur la chaise"
@@ -273,16 +273,16 @@ def on_answer(message):
             pp_msg = random.choice(["now you get to have a go at this question", "looks like you can have an attempt now", "it's your turn to try."])
         else:
             pp_msg = random.choice(["we were both wrong, but we will try hard on the next one!", "we both tried, lets see what the next question is.", "time to move onto the next question"])
-            
+
         post_msg = post_msg + pp_msg
-    
+
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
     pub_speech.publish(String(msg))
-    
+
     if post_msg != "skip":
         sleep(2) # Wait two seconds
         pub_speech.publish(String(post_msg))
-        
+
 
 def on_quiz_feedback(message):
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
@@ -291,14 +291,14 @@ def on_quiz_feedback(message):
     else:
         msg = random.choice(["It was a good try at least.", "It is tricky, but good attempt.", "Good effort!"])
     pub_speech.publish(String(msg))
-    
+
 def on_encourage(message):
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
     msg = random.choice(["You can do it! Give it a go.", "Just have a guess!", "If you don't try, you can't succeed."])
     pub_speech.publish(String(msg))
 
 def start_prod_expl():
-    
+
     msg = "We are going to play a game using the words you were taught this morning!"
     msg = msg + " This game is called, ou est la nounours, or where is the teddy bear."
     msg = msg + " On the screen in front of us we can see a nounours with la chaise."
@@ -316,6 +316,11 @@ def on_message(message):
     else:
         pub_speech = rospy.Publisher("/speech", String, queue_size=5)
         pub_speech.publish(String(msg))
+
+def on_childname(message):
+    global childname
+    childname = message
+
 
 class FallResponder(ALModule):
   """ Module to react to robotHasFallen events """
@@ -353,6 +358,10 @@ if __name__ == "__main__":
     sub_quiz_encourage = rospy.Subscriber("nao/prod_quiz/encourage", Empty, on_encourage, queue_size=1)
     sub_quiz_start = rospy.Subscriber("nao/prod_quiz/start", Empty, start_prod_expl, queue_size=1)
     sub_quiz_msg = rospy.Subscriber("nao/prod_quiz/message", String, on_message, queue_size=1)
+    sub_quiz_childname = rospy.Subscriber("nao/prod_quiz/childname", String, on_childname, queue_size=1)
+
+    childname = ""
+
 
     # We need this broker to be able to construct
     # NAOqi modules and subscribe to other modules
@@ -433,7 +442,7 @@ if __name__ == "__main__":
                 trackerProxy.lookAt([1,0,.2], 0, .1,False)
                 self._trackerProxy.registerTarget("Face",.2)
                 self._trackerProxy.track("Face")
-            
+
 
         r.sleep()
 
