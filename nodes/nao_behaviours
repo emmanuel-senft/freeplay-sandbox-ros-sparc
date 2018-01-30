@@ -298,7 +298,10 @@ def on_encourage(message):
     pub_speech.publish(String(msg))
 
 def start_prod_expl():
-
+    global state
+    
+    state = "production"
+    
     msg = "We are going to play a game using the words you were taught this morning!"
     msg = msg + " This game is called, ou est la nounours, or where is the teddy bear."
     msg = msg + " On the screen in front of us we can see a nounours with la chaise."
@@ -320,6 +323,11 @@ def on_message(message):
 def on_childname(message):
     global childname
     childname = message
+    
+def start_placement():
+    global state
+    state = "placement"
+    set_pointing_posture()
 
 
 class FallResponder(ALModule):
@@ -359,6 +367,7 @@ if __name__ == "__main__":
     sub_quiz_start = rospy.Subscriber("nao/prod_quiz/start", Empty, start_prod_expl, queue_size=1)
     sub_quiz_msg = rospy.Subscriber("nao/prod_quiz/message", String, on_message, queue_size=1)
     sub_quiz_childname = rospy.Subscriber("nao/prod_quiz/childname", String, on_childname, queue_size=1)
+    sub_placement_start = rospy.Subscriber("nao/placement/start", Empty, start_placement, queue_size=1)
 
     childname = ""
 
@@ -384,7 +393,7 @@ if __name__ == "__main__":
     motionProxy.wakeUp()
     postureProxy.goToPosture("StandInit", 0.5)
 
-    set_pointing_posture()
+    #set_pointing_posture()
 
     tl = tf.TransformListener()
 
@@ -431,17 +440,17 @@ if __name__ == "__main__":
             pass
 
 
-        if last_pose and (rospy.Time.now() - last_pose).to_sec() > 5:
+        if last_pose and state == "placement" and (rospy.Time.now() - last_pose).to_sec() > 5:
             #if (rospy.Time.now() - last_pose).to_sec() < 30:
             arm_between_pointing_posture()
             #else:
                 #arm_to_rest_posture()
 
-        if last_pose and (rospy.Time.now() - last_pose).t_sec() > 1
+        if last_pose and (rospy.Time.now() - last_pose).to_sec() > 1:
             if not trackerProxy.isActive():
                 trackerProxy.lookAt([1,0,.2], 0, .1,False)
-                self._trackerProxy.registerTarget("Face",.2)
-                self._trackerProxy.track("Face")
+                trackerProxy.registerTarget("Face",.2)
+                trackerProxy.track("Face")
 
 
         r.sleep()
