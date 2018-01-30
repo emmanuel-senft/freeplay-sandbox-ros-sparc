@@ -297,9 +297,8 @@ def on_encourage(message):
     msg = random.choice(["You can do it! Give it a go.", "Just have a guess!", "If you don't try, you can't succeed."])
     pub_speech.publish(String(msg))
 
-def start_prod_expl():
-    global state
-    
+def start_prod_expl(message):
+    global state 
     state = "production"
     
     msg = "We are going to play a game using the words you were taught this morning!"
@@ -367,7 +366,7 @@ if __name__ == "__main__":
     sub_quiz_start = rospy.Subscriber("nao/prod_quiz/start", Empty, start_prod_expl, queue_size=1)
     sub_quiz_msg = rospy.Subscriber("nao/prod_quiz/message", String, on_message, queue_size=1)
     sub_quiz_childname = rospy.Subscriber("nao/prod_quiz/childname", String, on_childname, queue_size=1)
-    sub_placement_start = rospy.Subscriber("nao/placement/start", Empty, start_placement, queue_size=1)
+    #sub_placement_start = rospy.Subscriber("nao/placement/start", Empty, start_placement, queue_size=1)
 
     childname = ""
 
@@ -393,7 +392,9 @@ if __name__ == "__main__":
     motionProxy.wakeUp()
     postureProxy.goToPosture("StandInit", 0.5)
 
-    #set_pointing_posture()
+    global state 
+    state = "placement"
+    set_pointing_posture()
 
     tl = tf.TransformListener()
 
