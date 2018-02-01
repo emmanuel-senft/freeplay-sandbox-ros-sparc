@@ -301,6 +301,8 @@ def on_encourage(message):
 def start_prod_expl(message):
     global state
     state = "production"
+    
+    arm_to_rest_posture()
 
     msg = "We are going to play a game using the words you were taught this morning!"
     msg = msg + " This game is called, ou est la nounours, or where is the teddy bear."
