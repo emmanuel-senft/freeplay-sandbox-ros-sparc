@@ -269,10 +269,11 @@ def on_answer(message):
             ans_list.remove(answer)
         msg = random.choice(ans_list)
         post_msg = random.choice(["That must have been wrong, ", "I guess I got it wrong, ", "Hmm, a tricky one, but at least I had a go, "])
-        if (int(question))%2 == 1:
-            pp_msg = random.choice(["now you get to have a go at this question", "looks like you can have an attempt now", "it's your turn to try."])
-        else:
-            pp_msg = random.choice(["we were both wrong, but we will try hard on the next one!", "we both tried, lets see what the next question is.", "time to move onto the next question"])
+        # if (int(question))%2 == 1:
+        #     pp_msg = random.choice(["now you get to have a go at this question", "looks like you can have an attempt now", "it's your turn to try."])
+        # else:
+        #     pp_msg = random.choice(["we were both wrong, but we will try hard on the next one!", "we both tried, lets see what the next question is.", "time to move onto the next question"])
+        pp_msg = "time to move onto the next question"
 
         post_msg = post_msg + pp_msg
 
@@ -289,7 +290,7 @@ def on_quiz_feedback(message):
     if (message.data == "correct"):
         msg = random.choice(["Well done!", "Good job!", "That's Great!"])
     else:
-        msg = random.choice(["It was a good try at least.", "It is tricky, but good attempt.", "Good effort!"])
+        msg = random.choice(["It was a good try at least.", "It is tricky, but good attempt.", "Good effort!", "That was not right, but good guess"])
     pub_speech.publish(String(msg))
 
 def on_encourage(message):
@@ -298,9 +299,9 @@ def on_encourage(message):
     pub_speech.publish(String(msg))
 
 def start_prod_expl(message):
-    global state 
+    global state
     state = "production"
-    
+
     msg = "We are going to play a game using the words you were taught this morning!"
     msg = msg + " This game is called, ou est la nounours, or where is the teddy bear."
     msg = msg + " On the screen in front of us we can see a nounours with la chaise."
@@ -314,7 +315,7 @@ def on_message(message):
     messagestr = message.data
     animated,msg = messagestr.split(',') #"animated,what was that in french?"
     if (animated == "animated"):
-        AnmtdSpchProxy.say(String(msg))
+        AnmtdSpchProxy.say(msg)
     else:
         pub_speech = rospy.Publisher("/speech", String, queue_size=5)
         pub_speech.publish(String(msg))
@@ -322,7 +323,7 @@ def on_message(message):
 def on_childname(message):
     global childname
     childname = message
-    
+
 def start_placement():
     global state
     state = "placement"
@@ -392,7 +393,7 @@ if __name__ == "__main__":
     motionProxy.wakeUp()
     postureProxy.goToPosture("StandInit", 0.5)
 
-    global state 
+    global state
     state = "placement"
     set_pointing_posture()
 
