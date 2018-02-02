@@ -42,6 +42,9 @@ robot_ready_to_point = False
 
 last_pose = None
 
+state = "waiting"
+childname = ""
+
 def clamp(v, limits):
     vmin, vmax = limits
     return max(min(v, vmax), vmin)
@@ -257,6 +260,7 @@ def get_answer(question):
         return "je ne sais quoi"
 
 def on_answer(message):
+    global last_pose
     messagestr = message.data
     result,question = messagestr.split(',')
     rospy.loginfo("Giving %s answer to quiz" % result)
@@ -268,21 +272,23 @@ def on_answer(message):
         if answer in ans_list:
             ans_list.remove(answer)
         msg = random.choice(ans_list)
-        post_msg = random.choice(["That must have been wrong, ", "I guess I got it wrong, ", "Hmm, a tricky one, but at least I had a go, "])
+        post_msg = random.choice(["That must have been wrong, but I am glad I tried.", "I guess I got it wrong, but that's ok.", "Hmm, a tricky one, but at least I had a go, "])
         # if (int(question))%2 == 1:
         #     pp_msg = random.choice(["now you get to have a go at this question", "looks like you can have an attempt now", "it's your turn to try."])
         # else:
         #     pp_msg = random.choice(["we were both wrong, but we will try hard on the next one!", "we both tried, lets see what the next question is.", "time to move onto the next question"])
-        pp_msg = "time to move onto the next question"
+        #pp_msg = "time to move onto the next question"
 
-        post_msg = post_msg + pp_msg
+        #post_msg = post_msg + pp_msg
 
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
-    pub_speech.publish(String(msg))
+    AnmtdSpchProxy.say(msg)
 
     if post_msg != "skip":
         sleep(2) # Wait two seconds
-        pub_speech.publish(String(post_msg))
+        AnmtdSpchProxy.say(post_msg)
+        
+    last_pose = rospy.Time.now()
 
 
 def on_quiz_feedback(message):
@@ -296,24 +302,33 @@ def on_quiz_feedback(message):
 def on_encourage(message):
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
     msg = random.choice(["You can do it! Give it a go.", "Just have a guess!", "If you don't try, you can't succeed."])
-    pub_speech.publish(String(msg))
+    AnmtdSpchProxy.say(msg)
 
 def start_prod_expl(message):
     global state
+    global last_pose
     state = "production"
     
     arm_to_rest_posture()
 
     msg = "We are going to play a game using the words you were taught this morning!"
-    msg = msg + " This game is called, ou est la nounours, or where is the teddy bear."
+    msg = msg + " This game is called, oo eh luh noo nour, or where is the teddy bear."
     msg = msg + " On the screen in front of us we can see a nounours with la chaise."
-    msg = msg + " Using the words we were taught this morning we need to say where le nounours is in relation to la chaise!"
+    msg = msg + " Using the words we were taught this morning we need to say where luh noo nour is in relation to la chaise!"
     msg = msg + " We each score points based on the ones we get right!"
+    msg = msg + " Your score is on the left, mine is on the right."
     msg = msg + " I'll try the first one to show you how it works."
 
     AnmtdSpchProxy.say(msg)
+    if ((not trackerProxy.isActive()) and(state != "waiting")):
+                trackerProxy.lookAt([1,0,.2], 0, .1,False)
+                trackerProxy.registerTarget("Face",.2)
+                trackerProxy.track("Face")
+                
+    last_pose = rospy.Time.now()
 
 def on_message(message):
+    global last_pose
     messagestr = message.data
     animated,msg = messagestr.split(',') #"animated,what was that in french?"
     if (animated == "animated"):
@@ -321,12 +336,14 @@ def on_message(message):
     else:
         pub_speech = rospy.Publisher("/speech", String, queue_size=5)
         pub_speech.publish(String(msg))
+        
+    last_pose = rospy.Time.now()
 
 def on_childname(message):
     global childname
     childname = message
 
-def start_placement():
+def start_placement(message):
     global state
     state = "placement"
     set_pointing_posture()
@@ -369,7 +386,7 @@ if __name__ == "__main__":
     sub_quiz_start = rospy.Subscriber("nao/prod_quiz/start", Empty, start_prod_expl, queue_size=1)
     sub_quiz_msg = rospy.Subscriber("nao/prod_quiz/message", String, on_message, queue_size=1)
     sub_quiz_childname = rospy.Subscriber("nao/prod_quiz/childname", String, on_childname, queue_size=1)
-    #sub_placement_start = rospy.Subscriber("nao/placement/start", Empty, start_placement, queue_size=1)
+    sub_placement_start = rospy.Subscriber("nao/placement/start", Empty, start_placement, queue_size=1)
 
     childname = ""
 
@@ -391,18 +408,24 @@ if __name__ == "__main__":
     AnmtdSpchProxy = ALProxy("ALAnimatedSpeech", NAO_IP, port);
     #fallResponder = FallResponder("fallResponder",motionProxy,memoryProxy);
 
+    global state
+    state = "waiting"
+    
+    if trackerProxy.isActive():
+        trackerProxy.stopTracker()
+
     motionProxy.wbEnableEffectorControl(effector,False); #if robot has fallen it will have a hard time getting up if the effector is still trying to be kept in a particular position
     motionProxy.wakeUp()
     postureProxy.goToPosture("StandInit", 0.5)
 
-    global state
-    state = "placement"
-    set_pointing_posture()
+    #global state
+    #state = "placement"
+    #set_pointing_posture()
 
     tl = tf.TransformListener()
 
     ### Check the robot is launched and properly localised wrt the sandtray
-    while not rospy.is_shutdown():
+    while not rospy.is_shutdown() and state != "placement":
         #if not tl.frameExists("/odom"):
         #    rospy.logwarn("Waiting for frame /odom to be published...")
         #else:
@@ -444,14 +467,17 @@ if __name__ == "__main__":
             pass
 
 
-        if last_pose and state == "placement" and (rospy.Time.now() - last_pose).to_sec() > 5:
+        if last_pose and (rospy.Time.now() - last_pose).to_sec() > 5:
             #if (rospy.Time.now() - last_pose).to_sec() < 30:
-            arm_between_pointing_posture()
+            if state == "placement":
+                arm_between_pointing_posture()
+            #else:
+                #postureProxy.goToPosture("StandInit", 0.5)
             #else:
                 #arm_to_rest_posture()
 
         if last_pose and (rospy.Time.now() - last_pose).to_sec() > 1:
-            if not trackerProxy.isActive():
+            if ((not trackerProxy.isActive()) and(state != "waiting")):
                 trackerProxy.lookAt([1,0,.2], 0, .1,False)
                 trackerProxy.registerTarget("Face",.2)
                 trackerProxy.track("Face")
@@ -462,5 +488,8 @@ if __name__ == "__main__":
 
     arm_to_rest_posture()
     motionProxy.rest()
+    
+    if trackerProxy.isActive():
+        trackerProxy.stopTracker()
 
     myBroker.shutdown()
