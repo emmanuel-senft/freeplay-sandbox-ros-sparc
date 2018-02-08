@@ -294,14 +294,14 @@ def on_answer(message):
 def on_quiz_feedback(message):
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
     if (message.data == "correct"):
-        msg = random.choice(["Well done!", "Good job!", "That's Great!"])
+        msg = random.choice(["Well done %s!" % childname, "Good job!", "That's Great!"])
     else:
-        msg = random.choice(["It was a good try at least.", "It is tricky, but good attempt.", "Good effort!", "That was not right, but good guess"])
+        msg = random.choice(["It was a good try at least.", "It is tricky, but good attempt.", "Good effort %s!" % childname, "That was not right, but good guess"])
     pub_speech.publish(String(msg))
 
 def on_encourage(message):
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
-    msg = random.choice(["You can do it! Give it a go.", "Just have a guess!", "If you don't try, you can't succeed."])
+    msg = random.choice(["You can do it! Give it a go.", "Just have a guess!", "If you don't try, you can't succeed.", "Don't worry %s, just have a go!" %s childname])
     AnmtdSpchProxy.say(msg)
 
 def start_prod_expl(message):
@@ -311,13 +311,17 @@ def start_prod_expl(message):
     
     arm_to_rest_posture()
 
-    msg = "We are going to play a game using the words you were taught this morning!"
-    msg = msg + " This game is called, oo eh luh noo nour, or where is the teddy bear."
-    msg = msg + " On the screen in front of us we can see a nounours with la chaise."
-    msg = msg + " Using the words we were taught this morning we need to say where luh noo nour is in relation to la chaise!"
-    msg = msg + " We each score points based on the ones we get right!"
-    msg = msg + " Your score is on the left, mine is on the right."
+    msg = "Ok %s , we are going to play my favourite game now. \pau=500\ It uses the words you were taught this morning! \pau=200\ " % childname
+    msg = msg + " This game is called, oo eh luh noo nours, or where is the teddy bear \pau=500\ ."
+    msg = msg + " Sounds fun, right? \pau=1500\ "
+    msg = msg + " On the screen in front of us we can see a noo nours with la chaise \pau=500\ ."
+    msg = msg + " Using the words we were taught this morning, sur, sous \pau=300\ and de vaugn, we need to say where luh noo nours is in relation to la chaise \pau=750\ !"
+    msg = msg + " We each score points based on the ones we get right \pau=500\ !"
+    msg = msg + " Your score is on the left, mine is on the right \pau=500\ ."
     msg = msg + " I'll try the first one to show you how it works."
+    msg = "\RSPD=90\ \VCT=100\ " + msg
+
+    AnmtdSpchProxy.say(msg)
 
     AnmtdSpchProxy.say(msg)
     if ((not trackerProxy.isActive()) and(state != "waiting")):
@@ -346,8 +350,16 @@ def on_childname(message):
 def start_placement(message):
     global state
     state = "placement"
-    set_pointing_posture()
+    
+    msg = "Hello %s . \pau=300\ " % childname
+    msg = msg + "I am Chapman, I am really excited to play this game with you today. \pau=500\ "
+    msg = msg + "Right, \pau=250\ why don't we start with one of the animals"
 
+    msg = "\RSPD=90\ \VCT=100\ " + msg
+
+    AnmtdSpchProxy.say(msg)
+    
+    set_pointing_posture()
 
 class FallResponder(ALModule):
   """ Module to react to robotHasFallen events """
@@ -388,8 +400,8 @@ if __name__ == "__main__":
     sub_quiz_childname = rospy.Subscriber("nao/prod_quiz/childname", String, on_childname, queue_size=1)
     sub_placement_start = rospy.Subscriber("nao/placement/start", Empty, start_placement, queue_size=1)
 
+    global childname
     childname = ""
-
 
     # We need this broker to be able to construct
     # NAOqi modules and subscribe to other modules
