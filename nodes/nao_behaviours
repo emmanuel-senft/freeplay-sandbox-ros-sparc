@@ -301,7 +301,7 @@ def on_quiz_feedback(message):
 
 def on_encourage(message):
     pub_speech = rospy.Publisher("/speech", String, queue_size=5)
-    msg = random.choice(["You can do it! Give it a go.", "Just have a guess!", "If you don't try, you can't succeed.", "Don't worry %s, just have a go!" %s childname])
+    msg = random.choice(["You can do it! Give it a go.", "Just have a guess!", "If you don't try, you can't succeed.", "Don't worry %s, just have a go!" % childname])
     AnmtdSpchProxy.say(msg)
 
 def start_prod_expl(message):
@@ -323,7 +323,6 @@ def start_prod_expl(message):
 
     AnmtdSpchProxy.say(msg)
 
-    AnmtdSpchProxy.say(msg)
     if ((not trackerProxy.isActive()) and(state != "waiting")):
                 trackerProxy.lookAt([1,0,.2], 0, .1,False)
                 trackerProxy.registerTarget("Face",.2)
@@ -345,7 +344,7 @@ def on_message(message):
 
 def on_childname(message):
     global childname
-    childname = message
+    childname = message.data
 
 def start_placement(message):
     global state
@@ -358,7 +357,7 @@ def start_placement(message):
     msg = "\RSPD=90\ \VCT=100\ " + msg
 
     AnmtdSpchProxy.say(msg)
-    
+    postureProxy.goToPosture("StandInit", 0.5)
     set_pointing_posture()
 
 class FallResponder(ALModule):
