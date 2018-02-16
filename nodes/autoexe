@@ -1,0 +1,37 @@
+#!/usr/bin/env python
+import rospy
+import tf
+from freeplay_sandbox_msgs.msg import ContinuousAction
+import sys
+import signal
+
+class Autoexecutor(object):
+    def __init__(self):
+
+        self._proposed_action_sub = rospy.Subscriber("sparc/proposed_action",ContinuousAction , self.on_proposed_action)
+
+        self._selected_action_pub = rospy.Publisher("sparc/selected_action", ContinuousAction, queue_size = 5)
+
+    def on_proposed_action(self, message):
+        if message.type.startswith("mv"):
+            message.type="mv"
+        self._selected_action_pub.publish(message)
+
+    def run(self):
+        rospy.spin()
+
+    def signal_handler(self, signal, frame):
+        self._stopping = True
+        sys.exit(0)
+
+    def reset_prop(self):
+        self._proposing_action = False
+        
+if __name__ == "__main__":
+
+    rospy.init_node('autoexe')
+
+    rospy.loginfo("Initializing TF...")
+    autoexe = Autoexecutor()
+    signal.signal(signal.SIGINT, autoexe.signal_handler)
+    autoexe.run()
