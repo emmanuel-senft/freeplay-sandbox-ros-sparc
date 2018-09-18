@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+from std_msgs.msg import String
+import rospy
+import threading
+import subprocess32
+import sys
+import os
+import datetime
+import signal
+
+class Launcher(object):
+    def __init__(self):
+        self._sub = rospy.Subscriber("/sandtray/interaction_events", String, self.on_event)
+        self._p = None
+
+    def on_event(self, message):
+        if message.data.startswith("startStudy"):
+            s = message.data.split("_")
+            self.record(s[1])
+            print "start"
+        elif message.data == "endStudy":
+            print "stop"
+            if not self._p is None:
+                self._p.send_signal(signal.SIGINT)
+
+    def record(self, name):
+        p = os.path.expanduser('~')+"/Documents/"
+        if not self._p is None:
+            self._p.kill()
+        self._p = subprocess32.Popen(["roslaunch", "freeplay_sandbox", "record_pilot.launch","output_folder:="+p+name+"/","output_name:=bag"])
+
+    def run(self):
+        rospy.spin()
+
+if __name__ == "__main__":
+    rospy.init_node("recorder");
+    
+    launcher = Launcher()
+    launcher.run()
+

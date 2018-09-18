@@ -119,6 +119,7 @@ catkin_install_python(PROGRAMS
     nodes/sandtray_gaze_viz
     nodes/transformations.py
     nodes/woz_play
+    nodes/pilot_recorder
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 install(FILES
