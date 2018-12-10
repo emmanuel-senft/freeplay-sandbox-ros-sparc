@@ -13,7 +13,7 @@
 #include <tf/transform_listener.h>
 
 #include <dynamic_reconfigure/server.h>
-#include <freeplay_sandbox/estimate_focusConfig.h> // generated header from cfg/estimate_focus.cfg
+#include <freeplay_sparc/estimate_focusConfig.h> // generated header from cfg/estimate_focus.cfg
 
 #include <freeplay_sandbox_msgs/AttentionTargetsStamped.h>
 #include <freeplay_sandbox_msgs/AttentionTarget.h>

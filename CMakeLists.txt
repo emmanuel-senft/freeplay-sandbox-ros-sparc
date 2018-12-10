@@ -13,7 +13,6 @@ find_package(catkin REQUIRED COMPONENTS
         image_transport 
         visualization_msgs
         image_geometry 
-        chilitags_catkin
         nodelet)
 
 ## System dependencies
@@ -69,10 +68,10 @@ target_link_libraries(sandbox_map_and_plan ${LIBS})
 #add_dependencies(markers_nodelet ${catkin_EXPORTED_TARGETS})
 #target_link_libraries(markers_nodelet ${LIBS})
 
-add_executable(sandtray_localisation 
-    src/sandtray_localisation/chilitagsdetector.cpp 
-    src/sandtray_localisation/sandtray_localisation.cpp)
-target_link_libraries(sandtray_localisation ${LIBS})
+#add_executable(sandtray_localisation 
+#    src/sandtray_localisation/chilitagsdetector.cpp 
+#    src/sandtray_localisation/sandtray_localisation.cpp)
+#target_link_libraries(sandtray_localisation ${LIBS})
 
 add_executable(estimate_focus src/estimate_focus.cpp)
 add_dependencies(estimate_focus ${PROJECT_NAME}_gencfg)
@@ -87,7 +86,7 @@ target_link_libraries(visualfocus_assessment ${LIBS})
 
 install(TARGETS
     sandbox_map_and_plan
-    sandtray_localisation
+    #    sandtray_localisation
     estimate_focus
     visualfocus_assessment
    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
