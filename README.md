@@ -1,15 +1,14 @@
-Free-play Sandbox -- ROS interface & autonomous play behaviour
-==============================================================
+Robot Learning Tutoring Study -- Robot Controller
+=================================================
 
-*This is the sister repository to [the QtQuick-based
-GUI](https://github.com/severin-lemaignan/freeplay-sandbox-qt) of the
-'Free-play Sandbox' experimental framework for Cognitive Human-Robot
-Interaction research.*
+*This work is heavily based on Séverin Lemaignan's [Free-play Sandbox](
+https://github.com/freeplay-sandbox/core). It is designed to be used with the
+[Food Chain Game](https://github.com/emmanuel-senft/freeplay-sandbox-qt) and the [Teacher's interface](https://github.com/emmanuel-senft/freeplay-sandbox-qt-supervisor).*
 
-![Display in RViz of the sandbox, with a Nao robot](docs/zoo-activity.png)
+![Interaction setup with a Nao robot](docs/setup.jpg)
 
-This repository contains  the ROS code for the 'Free-play Sandbox'
-experimental framework for HRI.
+This repository contains  the ROS code for the robot controller for the
+'Robot Learning Tutoring' study.
 
 
 Installation
@@ -23,76 +22,93 @@ If not yet installed, start by [installing
 ROS](http://wiki.ros.org/ROS/Installation) (tested with ROS Kinetic, but
 other versions might work as well).
 
+This repository also requires the messages defined [here](https://github.com/emmanuel-senft/freeplay-sandbox-msgs).
+
 Then:
 
 ```
-> git clone https://github.com/severin-lemaignan/freeplay-sandbox-ros.git
-> cd freeplay-sandbox-ros
+> git clone https://github.com/emmanuel-senft/freeplay-sandbox-ros-sparc
+> cd freeplay-sandbox-ros-sparc
 > mkdir build && cd build
 > cmake -DCMAKE_BUILD_TYPE=Release ..
 > make install
 ```
 
+Architecture
+-----------
+This image represents a highly simplified version of the control architecture
+for the study. In reality, more topics are present, the action interpreter and
+behaviours supervisor are different nodes (cf. `woz_play`, `sandbox_map_and_plan`,
+`move_sandbox_items`, `woz_play` and `nao_behaviour`) and the learner is the `actor` node.
+![Architecture](docs/architecture.png)
+
+
 Usage
 -----
 
-First, start `roscore` (and if desired, `rviz`) in a dedicated terminal.
+First, start `roscore` in a dedicated terminal.
 
-### Starting the free-play sandbox environment
+### Starting the food chain game
 
-- start the [GUI](https://github.com/severin-lemaignan/freeplay-sandbox-qt)
-  (from QtCreator for instance). When needed, press three times in the bottom
-  left corner to show the menu.
+- start the [game](https://github.com/emmanuel-senft/freeplay-sandbox-qt)
+  (from QtCreator for instance) (conditions: supervised, passive or autonomous
+  can be changed by pressing three times on the corners of the screen).
 
-- `roslaunch freeplay_sandbox interactive_playground.launch`
+- `roslaunch freeplay_sparc interactive_playground.launch`
 
 This launch file:
 
-- broadcast the sandtray 3D model + camera frames;
-- build an occupancy map based on the positions of the objects within the sandbox, and provide a 
-  A\*-based path planning service to move around said objects;
-- creates an action server to move sandbox objects to specific positions, using the path planner;
-- process the sandbox background image to extract possible zones (using simple
-  colour-based segmentation).
+- broadcasts the sandtray 3D model + camera frames
+- builds an occupancy map based on the positions of the objects within the game,
+and provide a  A\*-based path planning service to move around said objects
+- creates an action server to move sandbox objects to specific positions,
+using the path planner
+- creates a node to receive actions from the teacher's GUI and have the robot
+ execute them
+- creates a static frame for the robot, assuming it is facing the child on the
+top of the sandtray
 
-![The basic interactive playground, viewed in RViz](docs/rviz-sandtray.png)
+### Starting the teacher's GUI
 
-You can open in `rviz` the provided configuration (`config/sandtray.rviz`) to
-obtain the above display.
+On a different computer, such as a tablet, start the [teacher's GUI](https://github.com/emmanuel-senft/freeplay-sandbox-qt-supervisor) (from QtCreator for instance) (be careful the set the ROS_MASTER_IP to the touchscreen, where all
+  the other nodes and the roscore are running).
 
-The poses of the various play items are reflected in the `rviz` interface when
-interacting with them on the sandtray.
+This GUI allows the teacher to see the state of the game, select actions for the
+robot and react to its suggestions.
 
-### Artificial player
 
-A simple (rather stupid) autonomous play behaviour can be started, to have the
-robot to 'do something'. This basic behaviour is (purposefully) non-social (the
-actions of the other users are not taken into account when playing), and can be
-used as a baseline of a non-social robot. [See below](#play) the exact play
-policy.
-
-The artificial player can be started with or without (default) robot. Currently,
-**only Nao is supported**.
-
-#### Without robot
-
-Simply run:
-
-```
-$ roslaunch freeplay_sandbox play.launch
-```
-
-#### With the robot
+### Starting the robot controller (Nao)
 
 ```
 $ export NAO_IP=<the IP of the Nao>
-$ roslaunch freeplay_sandbox play.launch with_robot:=true
+$ roslaunch freeplay_sparc robot_controller.launch
 ```
 
-[See below](#Sandtray-localisation-using-fiducial-markers) to use as well robot localisation using a fiducial marker.
+### Start SPARC
 
-Use `roslaunch --ros-args freeplay_sandbox play.launch` to see the full list of
-options.
+This enable the robot to learn from the teacher's selection and propose actions
+to the teacher.
+
+```
+$ rosrun freeplay_sparc sparclauncher
+```
+
+This script starts the `sparc.launch` files at the start of the interaction and
+stops it at the end.
+
+Depending of the condition, this launch file starts the set of nodes required
+for a passive robot, a supervised one learning from the teacher or an autonomous
+one.
+
+In the supervised condition, it launches the following nodes:
+- `action_analyser` which also starts the `state_analyser.py`. These two nodes
+interpret the state of the game and the action selected by the teacher or
+proposed by the algorithm.
+- `actor` which learns from the teacher's selections and can propose actions
+
+In the autonomous condition, the `autoexe` node is also started to automatically
+accept the algorithm's suggestion after a short delay.
+
 
 ### Tracking visual focus
 
@@ -107,7 +123,7 @@ testing with a desktop webcam, you can download and install the
 Once gaze tracking work, you can run:
 
 ```
-$ roslaunch freeplay_sandbox visualfocus_tracking_gscam.launch
+$ roslaunch freeplay_sparc focus_gaze.launch
 ```
 
 This launch file:
@@ -117,45 +133,69 @@ This launch file:
 - starts `gazr`
 - computes the intersection between the estimated gaze direction and the
   sandtray.
+- sends a message informing if the child is looking at the robot, the screen or
+outside.
 
 This intersection, ie the current visual focus of the participant, can be
-visualised on the sandtray by enabling the corresponding option in the sandbox
-menu (that appears by clicking three times in the bottom left corner).
+visualised on the teacher's interface.
 
 Data recording
 --------------
 
-Two launch files help with recording the interactions. See
-[freeplay-sandbox-analysis](https://github.com/severin-lemaignan/freeplay-sandbox-analysis)
-for data analysis tools.
+This code can use `rosbag` to record the interaction data and the camera and
+audio feeds. A script `recorder` can use the `record.launch` launch file to
+start the recording when the interaction starts and stop it at the end of the
+interaction. This `recorder` file can be edited to change the location of the
+rosbag. By default it will store files in Documents/foodchain-data and expects in that folder a `bag` folder and a `video` folder, with each three subfolders for
+the three conditions: `condition-nosparc-normal`, `condition-sparc-autonomous`
+and `condition-sparc-normal`.
 
-### Configuration of the recording
 
-The launch file `prepare_recording.launch` starts the video and audio streams,
-as well as publish the base TF nodes (sandtray + camera positions).
-
-Video resolution and compression parameters are set either in
-`prepare_recording.launch` or in `dual_sr300.launch`.
-
-This launch file expect 2 SR300 cameras and one Kinect 2, used as the
-environmental camera.
-
-### Actual recording
+```
+$ rosrun freeplay_sparc recorder
+```
 
 The launch file `record.launch` configure and execute `rosbag` to record the
 relevant topic. [See the
-source](https://github.com/severin-lemaignan/freeplay-sandbox-ros/blob/master/launch/record.launch)
+source](https://github.com/emmanuel-senft/freeplay-sandbox-ros-sparc/blob/task/launch/record.launch)
 for the exact list of recorded topics.
 
-Importantly, the recording duration must be set with `duration:=...` (possible
-values include a number of seconds, `10m`, `2h`, etc. - by default, only 1
-minute is recorded).
-
-Be aware that the bag file become quickly rather big (expect 500MB/minute).
-
+Be aware that the bag file become quickly rather big (expect 150MB/minute).
 
 Nodes documentation
 -------------------
+### state_analyser
+
+`state_analyser` is the node interpreting the state of the game and of the child.
+It takes as input position of each item and interaction events and creates a 210
+dimensional vector of values between 0 and 1 that can be used for the learning.
+
+### action_analyser
+
+`action_analyser` is used to convert the actions selected by the teacher (such
+as moving the eagle to the coordinate x, y while also selecting the snake) to
+a discrete action (move the eagle close to the snake). It also converts the
+discrete actions from the algorithm to a continuous action executable by the
+robot (for example by selecting a set of coordinates for the goal position of a
+movement) and proposes it to the teacher through the teacher's interface.
+
+### woz_play
+
+`woz_play` get as input continuous actions and uses sandbox_map_and_plan to
+create a trajectory for the action and create a sentence for the robot to
+describe what it is currently doing.
+
+### actor
+
+`actor` uses an algorithm adapted from the Nearest Neighbours to learn a tutoring
+policy from the current state of the game and actions rewarded by the teacher.
+It can propose actions to the teacher through the action_analyser.
+
+### nao_behaviour
+
+`nao_behaviour` is a bridge between ROS and naoqi. It receive pointing gestures
+or strings and call the related naoqi functions to have the robot interact in
+the real world.
 
 ### sandbox_map_and_plan
 
@@ -180,59 +220,3 @@ a goal (item name, target position), calls the planner, and 'executes' the
 motion by publishing a sequence of ROS poses corresponding to virtual touches of
 the robot on the surface of the GUI, causing the robot to actually move items
 around.
-
-### play
-
-This node actually encodes the play strategy for the robot. Currently, the
-following behaviour is hard-coded for the 'Zoo' environment:
-
-at each step,
-    - either move one animal to its habitat
-    - or one block onto the border of one of the enclosure
-
-Animals and blocks are picked up only if they are in (virtual) arm reach, and
-the closest animals/blocks are always prefered.
-
-
-Advanced features
------------------
-
-### Sandtray localisation using fiducial markers
-
-By tapping three times on the bottom right corner of the sandbox, a fiducial
-marker. This marker can be used by the robot to localise itself wrt to the
-sandtray.
-
-When running, a dedicated node (`sandtray_localisation`) listens on a special
-topic (by default, `/sandtray/signals/robot_localising`) for a signal (ie, an
-empty message).  The signal is emitted by the sandtray when it shows the
-fiducial marker. Upon reception of the signal, it attempts to detect a specific
-fiducial marker (by default, chilitags '709', can be set with `_marker_id:=...`)
-of a specific size (by default 10cm, can be set with `_marker_size:=...`). If
-the marker is found within 5 seconds, the node starts to publish a static
-transform between frames `_target_frame` (by default, `sandtray`) and
-`_reference_frame` (by default, `odom`), thus making all the robot TF frames
-visible from the `sandtray` base frame. If the robot successfully detects the
-fiducial marker, it says "I know where I am".
-
-Everytime a new signal is received, the transform is updated: if you move the
-robot, simply tap again on the bottom right corner, and the robot will
-re-localise.
-
-**Pre-requisite**: 
-  - [chilitags](https://github.com/chili-epfl/chilitags) (Robust Fiducial Markers for Augmented Reality And Robotics http://chili.epfl.ch/software)
-  - [ros_markers](https://github.com/chili-epfl/ros_markers) (the
-ROS wrapper for the chilitags library)
-  - [freeplay-sandbox-msgs](https://github.com/severin-lemaignan/freeplay-sandbox-msgs) (ROS messages for the freeplay_sandbox experimental framework )
-
-To enable marker-based localisation, launch `play.launch` with the option
-`with_marker_localisation:=true`.
-
-### Disabling gnome-shell gestures
-
-To disable `gnome-shell` gestures, open LookingGlass (Alt+F2 > `lg`) and execute
-the following command:
-
-```javascript
-global.stage.get_actions().forEach(a => a.enabled = false);
-```
